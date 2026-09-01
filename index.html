@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nv-devices | 貸与物管理</title>
+<style>
+:root{
+  --blue:#1a6dcc;--blue-light:#e8f1fb;--blue-dark:#0d4a94;
+  --green:#1d9e75;--green-light:#e1f5ee;
+  --amber:#ba7517;--amber-light:#faeeda;
+  --purple:#534ab7;--purple-light:#eeedfe;
+  --red:#a32d2d;--red-light:#fcebeb;
+  --text:#1f2328;--text-sub:#656d76;--text-muted:#8b949e;
+  --border:#d8dee4;--bg:#f6f8fa;--white:#fff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sans",Meiryo,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6}
+.header{background:var(--white);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:16px;font-weight:600}
+.header h1 span{color:var(--blue);margin-right:8px}
+.header .refresh{font-size:12px;color:var(--text-sub);cursor:pointer;border:1px solid var(--border);border-radius:6px;padding:5px 12px;background:var(--white)}
+.header .refresh:hover{background:var(--bg)}
+.container{max-width:1080px;margin:0 auto;padding:20px 24px}
+.tabs{display:flex;gap:2px;margin-bottom:20px;border-bottom:2px solid var(--border)}
+.tab{padding:9px 18px;font-size:14px;cursor:pointer;border:none;background:transparent;color:var(--text-sub);border-bottom:2px solid transparent;margin-bottom:-2px;font-weight:500}
+.tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab:hover:not(.active){color:var(--text)}
+.loading{text-align:center;padding:4rem;color:var(--text-muted)}
+.spinner{display:inline-block;width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{background:var(--red-light);border:1px solid var(--red);border-radius:8px;padding:14px 18px;color:var(--red);font-size:13px;margin-bottom:16px}
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px}
+.scard{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.scard-label{font-size:12px;color:var(--text-sub);margin-bottom:2px}
+.scard-num{font-size:24px;font-weight:600}
+.scard-num small{font-size:12px;font-weight:400;color:var(--text-sub);margin-left:3px}
+.toolbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.toolbar input[type=text],.toolbar select{font-size:14px;padding:7px 12px;border-radius:6px;border:1px solid var(--border);background:var(--white)}
+.toolbar input[type=text]{flex:1;min-width:200px}
+.toolbar input:focus,.toolbar select:focus{outline:2px solid var(--blue-light);border-color:var(--blue)}
+.emp-list{display:flex;flex-direction:column;gap:8px}
+.emp-card{background:var(--white);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.emp-head{display:flex;align-items:center;gap:14px;padding:12px 18px;cursor:pointer}
+.emp-head:hover{background:#fafbfc}
+.emp-name{font-size:14px;font-weight:600;min-width:120px}
+.emp-status-tag{font-size:10px;padding:1px 8px;border-radius:99px;font-weight:600}
+.st-active{background:var(--green-light);color:var(--green)}
+.st-leaving{background:var(--amber-light);color:var(--amber)}
+.st-left{background:var(--bg);color:var(--text-muted);border:1px solid var(--border)}
+.emp-marks{display:flex;gap:6px;flex:1;flex-wrap:wrap}
+.mark{font-size:11px;padding:3px 10px;border-radius:99px;font-weight:600;white-space:nowrap}
+.m-on{background:var(--blue-light);color:var(--blue-dark)}
+.m-mobile{background:var(--green-light);color:var(--green)}
+.m-hf{background:#f1efe8;color:#5f5e5a}
+.m-hf-ok{background:var(--green-light);color:var(--green);border:1px solid var(--green)}
+.m-wifi{background:var(--amber-light);color:var(--amber)}
+.m-extra{background:var(--purple-light);color:var(--purple)}
+.m-off{background:var(--bg);color:var(--text-muted);border:1px dashed var(--border)}
+.emp-toggle{color:var(--text-muted);font-size:12px;transition:transform 0.15s}
+.emp-card.open .emp-toggle{transform:rotate(90deg)}
+.emp-detail{display:none;border-top:1px solid var(--border);padding:14px 18px;background:#fafbfc}
+.emp-card.open .emp-detail{display:block}
+.detail-section{margin-bottom:14px}
+.detail-section:last-child{margin-bottom:0}
+.detail-label{font-size:11px;font-weight:600;color:var(--text-sub);margin-bottom:6px}
+.detail-row{display:flex;align-items:baseline;gap:10px;font-size:13px;padding:4px 0;flex-wrap:wrap}
+.detail-row .k{color:var(--text-sub);font-size:12px;min-width:90px}
+.detail-row .mono{font-family:"SF Mono",Consolas,Menlo,monospace;font-size:12px}
+.extra-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 0}
+.extra-del{font-size:11px;color:var(--red);cursor:pointer;border:none;background:none;padding:2px 6px}
+.extra-del:hover{text-decoration:underline}
+.extra-add{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.extra-add select,.extra-add input{font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--border)}
+.extra-add input{flex:1;min-width:140px}
+.btn{padding:7px 16px;font-size:13px;border-radius:6px;border:1px solid var(--border);background:var(--white);cursor:pointer;font-weight:500}
+.btn:hover{background:var(--bg)}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-primary:hover{background:var(--blue-dark)}
+.btn-sm{padding:4px 12px;font-size:12px}
+.btn-warn{border-color:var(--amber);color:var(--amber)}
+.btn-danger{border-color:var(--red);color:var(--red)}
+.empty{text-align:center;padding:3rem;color:var(--text-muted);font-size:13px}
+.notice{font-size:13px;background:var(--amber-light);border:1px solid #e8c88a;border-radius:8px;padding:10px 16px;margin-bottom:16px;color:#7a5410}
+.section-title{font-size:14px;font-weight:600;color:var(--text-sub);margin:0 0 12px}
+.type-btns{display:flex;gap:8px;margin-bottom:20px}
+.type-btn{padding:8px 20px;font-size:13px;border-radius:6px;border:1px solid var(--border);background:var(--white);cursor:pointer;font-weight:500;color:var(--text)}
+.type-btn.active{border-color:var(--blue);color:var(--blue);background:var(--blue-light)}
+.form-card{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:640px){.form-grid{grid-template-columns:1fr}}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group label{font-size:12px;color:var(--text-sub);font-weight:600}
+.form-group input,.form-group select{font-size:14px;padding:8px 12px;border-radius:6px;border:1px solid var(--border)}
+.mail-output{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px 18px;font-size:13px;line-height:1.9;white-space:pre-wrap;min-height:140px;margin-bottom:12px}
+.copy-note{font-size:12px;color:var(--green);display:none}
+.btn-row{display:flex;gap:8px;margin-top:16px;align-items:center}
+.retire-item{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--white);border-radius:8px;border:1px solid var(--border);margin-bottom:8px;flex-wrap:wrap}
+.ri-info{flex:1;min-width:200px}
+.ri-name{font-size:13px;font-weight:600}
+.ri-sub{font-size:11px;color:var(--text-sub)}
+.ri-actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ri-actions select{font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)}
+.ri-done{font-size:11px;color:var(--green);font-weight:600}
+.saving{font-size:11px;color:var(--amber)}
+footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
+.model-group{background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden}
+.model-head{display:flex;align-items:center;gap:10px;padding:11px 16px;background:var(--bg);border-bottom:1px solid var(--border)}
+.model-name{font-size:13px;font-weight:600;flex:1}
+.model-count{font-size:12px;color:var(--text-sub)}
+.model-rows{padding:4px 0}
+.model-row{display:flex;align-items:baseline;gap:12px;padding:7px 16px;font-size:13px;border-bottom:1px solid #f0f2f4;flex-wrap:wrap}
+.model-row:last-child{border-bottom:none}
+.model-row:hover{background:#fafbfc}
+.mr-owner{font-weight:600;min-width:110px}
+.mr-owner .lnk{cursor:pointer;color:var(--blue)}
+.mr-owner .lnk:hover{text-decoration:underline}
+.asset-table{width:100%;border-collapse:collapse;font-size:13px}
+.asset-table th{text-align:left;padding:10px 14px;font-weight:600;font-size:12px;color:var(--text-sub);border-bottom:1px solid var(--border);background:var(--bg);white-space:nowrap}
+.asset-table td{padding:9px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+.asset-table tbody tr:last-child td{border-bottom:none}
+.asset-table tbody tr:hover{background:#fafbfc}
+.card{background:var(--white);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.mono{font-family:"SF Mono",Consolas,Menlo,monospace;font-size:12px;color:var(--text-sub)}
+.sub{font-size:12px;color:var(--text-sub)}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:600;white-space:nowrap}
+.b-pc{background:var(--blue-light);color:var(--blue-dark)}
+.b-mobile{background:var(--green-light);color:var(--green)}
+.b-wifi{background:var(--amber-light);color:var(--amber)}
+.b-mac{background:var(--purple-light);color:var(--purple)}
+.b-hf{background:#f1efe8;color:#5f5e5a}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>■</span>nv-devices 貸与物管理</h1>
+  <button class="refresh" onclick="loadData()">データ再読込</button>
+</div>
+
+<div class="container">
+
+<div class="tabs">
+  <button class="tab active" data-tab="people" onclick="showTab('people')">社員一覧</button>
+  <button class="tab" data-tab="assets" onclick="showTab('assets')">機器一覧</button>
+  <button class="tab" data-tab="mail" onclick="showTab('mail')">発注メール</button>
+  <button class="tab" data-tab="retire" onclick="showTab('retire')">退職処理</button>
+</div>
+
+<div id="loading" class="loading"><div class="spinner"></div><div>データを読み込んでいます...</div></div>
+<div id="error" style="display:none" class="error-box"></div>
+
+<div id="content" style="display:none">
+
+<!-- 社員一覧 -->
+<div id="tab-people">
+  <div class="summary">
+    <div class="scard"><div class="scard-label">在籍社員</div><div class="scard-num" id="cnt-emp">—</div></div>
+    <div class="scard"><div class="scard-label">PC貸与</div><div class="scard-num" id="cnt-pc">—</div></div>
+    <div class="scard"><div class="scard-label">スマホ貸与</div><div class="scard-num" id="cnt-mobile">—</div></div>
+    <div class="scard"><div class="scard-label">HF交換可能</div><div class="scard-num" id="cnt-hf-ok">—</div></div>
+  </div>
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="社員名で検索..." oninput="renderPeople()">
+    <select id="filter-emp-status" onchange="renderPeople()">
+      <option value="在籍中">在籍中のみ</option>
+      <option value="退職予定">退職予定のみ</option>
+      <option value="退職済み">退職済みのみ</option>
+      <option value="">すべて表示</option>
+    </select>
+    <select id="filter-missing" onchange="renderPeople()">
+      <option value="">絞り込みなし</option>
+      <option value="no-pc">PC未貸与</option>
+      <option value="no-mobile">スマホ未貸与</option>
+      <option value="hf-ok">HF交換可能</option>
+    </select>
+  </div>
+  <div class="emp-list" id="emp-list"></div>
+</div>
+
+<!-- 機器一覧 -->
+<div id="tab-assets" style="display:none">
+  <div class="summary">
+    <div class="scard"><div class="scard-label">PC</div><div class="scard-num" id="as-cnt-pc">—</div></div>
+    <div class="scard"><div class="scard-label">スマホ</div><div class="scard-num" id="as-cnt-mobile">—</div></div>
+    <div class="scard"><div class="scard-label">Wi-Fi</div><div class="scard-num" id="as-cnt-wifi">—</div></div>
+    <div class="scard"><div class="scard-label">追加備品</div><div class="scard-num" id="as-cnt-extra">—</div></div>
+  </div>
+  <div class="toolbar">
+    <input type="text" id="as-search" placeholder="機種名・保有者・シリアルで検索..." oninput="renderAssets()">
+    <select id="as-type" onchange="renderAssets()">
+      <option value="PC">パソコン</option>
+      <option value="携帯">スマホ</option>
+      <option value="Wi-Fi">Wi-Fi</option>
+      <option value="Mac付属品">Mac付属品</option>
+      <option value="追加備品">追加備品</option>
+      <option value="ヘッドフォン">ヘッドフォン</option>
+    </select>
+    <select id="as-group" onchange="renderAssets()">
+      <option value="model">機種ごとにまとめる</option>
+      <option value="flat">まとめない（一覧）</option>
+    </select>
+    <select id="as-status" onchange="renderAssets()">
+      <option value="使用中">使用中のみ</option>
+      <option value="">すべて</option>
+      <option value="返却済">返却済のみ</option>
+    </select>
+  </div>
+  <div id="assets-area"></div>
+</div>
+
+<!-- 発注メール -->
+<div id="tab-mail" style="display:none">
+  <div class="type-btns">
+    <button class="type-btn active" id="btn-order" onclick="setMailType('order')">新規発注</button>
+    <button class="type-btn" id="btn-exchange" onclick="setMailType('exchange')">交換依頼</button>
+  </div>
+  <div class="form-card" id="form-order">
+    <div class="form-grid">
+      <div class="form-group"><label>入社日</label><input type="date" id="join-date"></div>
+      <div class="form-group"><label>人数</label><input type="number" id="join-count" min="1" value="1"></div>
+      <div class="form-group"><label>機器</label>
+        <select id="device-type">
+          <option value="both">PC + 携帯</option>
+          <option value="pc">PCのみ</option>
+          <option value="mobile">携帯のみ</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Officeライセンス</label>
+        <select id="office"><option value="yes">あり</option><option value="no">なし</option></select>
+      </div>
+    </div>
+    <div class="btn-row"><button class="btn btn-primary" onclick="genOrderMail()">メール生成</button></div>
+  </div>
+  <div class="form-card" id="form-exchange" style="display:none">
+    <div class="form-grid">
+      <div class="form-group"><label>対象社員名</label><input type="text" id="ex-name" list="staff-list"></div>
+      <div class="form-group"><label>機器名</label><input type="text" id="ex-device" placeholder="例：ProBook 635 Aero G8"></div>
+      <div class="form-group"><label>シリアル番号</label><input type="text" id="ex-serial"></div>
+      <div class="form-group"><label>不具合内容</label><input type="text" id="ex-issue" placeholder="例：キーボードのキーに不具合が生じているため"></div>
+    </div>
+    <div class="btn-row"><button class="btn btn-primary" onclick="genExchangeMail()">メール生成</button></div>
+  </div>
+  <datalist id="staff-list"></datalist>
+  <div class="section-title">生成されたメール</div>
+  <div class="mail-output" id="mail-output">フォームに入力して「メール生成」を押してください</div>
+  <div class="btn-row">
+    <button class="btn" onclick="copyMail()">コピー</button>
+    <span class="copy-note" id="copy-note">コピーしました</span>
+  </div>
+</div>
+
+<!-- 退職処理 -->
+<div id="tab-retire" style="display:none">
+  <div class="notice">退職者を選ぶと貸与物一覧が出ます。各機器の処理（返却/スライド/ストック化）を選んで実行してください。全機器の処理が終わったら「退職済みにする」で完了です。</div>
+  <div class="toolbar">
+    <select id="retire-select" onchange="renderRetire()">
+      <option value="">退職する社員を選択...</option>
+    </select>
+  </div>
+  <div id="retire-area"><div class="empty">社員を選択してください</div></div>
+</div>
+
+</div><!-- /content -->
+</div><!-- /container -->
+
+<footer>nv-devices | ナウビレッジ株式会社 管理部</footer>
+
+<script>
+// ============================================================
+// 設定: GASデプロイURLをここに貼り付け
+// ============================================================
+const GAS_URL = 'https://script.google.com/macros/s/AKfycby3VPMBTQE5FAHbHLrcT2TyNdEmVP7aHdwX4WHOf7X3JluXK6qp-FD51F8mGdOOevwN/exec';
+
+let employees = [];
+let devices = [];
+let mobiles = [];
+let headphones = [];
+let extras = [];
+let itemTypes = [];
+let config = {};
+let openCards = new Set();
+
+// ---------- データ取得 ----------
+async function loadData(){
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('content').style.display = 'none';
+  document.getElementById('error').style.display = 'none';
+  try{
+    const res = await fetch(GAS_URL + '?action=getData');
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    employees = data.employees || [];
+    devices = data.devices || [];
+    mobiles = data.mobiles || [];
+    headphones = data.headphones || [];
+    extras = data.extras || [];
+    itemTypes = data.itemTypes || [];
+    config = data.config || {};
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+    updateSummary();
+    renderPeople();
+    renderAssets();
+    buildStaffList();
+    buildRetireSelect();
+    renderRetire();
+  }catch(err){
+    document.getElementById('loading').style.display = 'none';
+    const box = document.getElementById('error');
+    box.style.display = 'block';
+    box.textContent = 'データの取得に失敗しました。GAS_URLの設定とデプロイ状態を確認してください。（' + err.message + '）';
+  }
+}
+
+// ---------- ヘルパー ----------
+function esc(s){
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function parseDate(s){
+  if(!s) return null;
+  const p = s.split('/');
+  if(p.length !== 3) return null;
+  return new Date(Number(p[0]), Number(p[1])-1, Number(p[2]));
+}
+function addYears(d, n){
+  const r = new Date(d);
+  r.setFullYear(r.getFullYear() + n);
+  return r;
+}
+async function apiPost(body){
+  const res = await fetch(GAS_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain'},
+    body: JSON.stringify(body)
+  });
+  const result = await res.json();
+  if(result.error) throw new Error(result.error);
+  return result;
+}
+
+function personAssets(name){
+  const isSpecial = name === '貸出用' || name === '派遣';
+  const pcs = devices.filter(d => d['保有者'] === name && (d['種別'] === 'PC' || d['種別'] === 'Mac付属品') && d['ステータス'] !== '返却済');
+  const wifis = devices.filter(d => d['保有者'] === name && d['種別'] === 'Wi-Fi' && d['ステータス'] !== '返却済');
+  const mob = mobiles.filter(d => d['保有者'] === name && d['ステータス'] !== '返却済');
+  const hf = headphones.find(d => d['名前'] === name && d['ステータス'] !== '返却済');
+  const ext = extras.filter(d => d['保有者'] === name && d['ステータス'] !== '返却済');
+  return {pcs, wifis, mob, hf, ext, isSpecial};
+}
+
+function hfInfo(hf){
+  if(!hf) return null;
+  const fd = parseDate(hf['初回貸与日']);
+  if(!fd) return {status:'unknown', label:'HF（貸与日不明）'};
+  const eligibleDate = addYears(fd, 2);
+  if(new Date() >= eligibleDate) return {status:'eligible', label:'HF 交換可能', date:eligibleDate};
+  const ym = eligibleDate.getFullYear() + '/' + String(eligibleDate.getMonth()+1).padStart(2,'0');
+  return {status:'wait', label:'HF（' + ym + '〜交換可）', date:eligibleDate};
+}
+
+// ---------- サマリー ----------
+function updateSummary(){
+  const active = employees.filter(e => e['在籍状況'] === '在籍中' && e['名前'] !== '貸出用' && e['名前'] !== '派遣');
+  document.getElementById('cnt-emp').innerHTML = active.length + '<small>名</small>';
+  let pcCount = 0, mobCount = 0, hfOkCount = 0;
+  active.forEach(e => {
+    const a = personAssets(e['名前']);
+    if(a.pcs.length) pcCount++;
+    if(a.mob.length) mobCount++;
+    const hi = hfInfo(a.hf);
+    if(hi && hi.status === 'eligible') hfOkCount++;
+  });
+  document.getElementById('cnt-pc').innerHTML = pcCount + '<small>名</small>';
+  document.getElementById('cnt-mobile').innerHTML = mobCount + '<small>名</small>';
+  document.getElementById('cnt-hf-ok').innerHTML = hfOkCount + '<small>名</small>';
+}
+
+// ---------- 社員一覧 ----------
+function renderPeople(){
+  const q = document.getElementById('search').value.trim();
+  const statusFilter = document.getElementById('filter-emp-status').value;
+  const missing = document.getElementById('filter-missing').value;
+
+  const filtered = employees.filter(e => {
+    const name = e['名前'];
+    if(q && !name.includes(q)) return false;
+    if(statusFilter && e['在籍状況'] !== statusFilter) return false;
+    if(missing){
+      const a = personAssets(name);
+      if(missing === 'no-pc' && a.pcs.length) return false;
+      if(missing === 'no-mobile' && a.mob.length) return false;
+      if(missing === 'hf-ok'){
+        const hi = hfInfo(a.hf);
+        if(!hi || hi.status !== 'eligible') return false;
+      }
+    }
+    return true;
+  });
+
+  const list = document.getElementById('emp-list');
+  if(!filtered.length){
+    list.innerHTML = '<div class="empty">該当なし</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(e => {
+    const name = e['名前'];
+    const a = personAssets(name);
+    const stCls = e['在籍状況'] === '在籍中' ? 'st-active' : e['在籍状況'] === '退職予定' ? 'st-leaving' : 'st-left';
+    const marks = [];
+
+    if(a.isSpecial){
+      marks.push(`<span class="mark m-on">PC ×${a.pcs.length}</span>`);
+      if(a.wifis.length) marks.push(`<span class="mark m-wifi">Wi-Fi ×${a.wifis.length}</span>`);
+    }else{
+      marks.push(a.pcs.length ? `<span class="mark m-on">PC</span>` : `<span class="mark m-off">PC未</span>`);
+      marks.push(a.mob.length ? `<span class="mark m-mobile">スマホ</span>` : `<span class="mark m-off">スマホ未</span>`);
+      const hi = hfInfo(a.hf);
+      if(hi){
+        marks.push(`<span class="mark ${hi.status === 'eligible' ? 'm-hf-ok' : 'm-hf'}">${esc(hi.label)}</span>`);
+      }else{
+        marks.push(`<span class="mark m-off">HF未</span>`);
+      }
+      if(a.wifis.length) marks.push(`<span class="mark m-wifi">Wi-Fi</span>`);
+      if(a.ext.length) marks.push(`<span class="mark m-extra">+${a.ext.length}備品</span>`);
+    }
+
+    const isOpen = openCards.has(name);
+    return `<div class="emp-card ${isOpen ? 'open' : ''}" id="card-${esc(name)}">
+      <div class="emp-head" onclick="toggleCard('${esc(name)}')">
+        <span class="emp-name">${esc(name)}</span>
+        <span class="emp-status-tag ${stCls}">${esc(e['在籍状況'])}</span>
+        <div class="emp-marks">${marks.join('')}</div>
+        <span class="emp-toggle">▶</span>
+      </div>
+      <div class="emp-detail">${isOpen ? renderDetail(name) : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCard(name){
+  if(openCards.has(name)){
+    openCards.delete(name);
+  }else{
+    openCards.add(name);
+  }
+  renderPeople();
+}
+
+function renderDetail(name){
+  const a = personAssets(name);
+  let html = '';
+
+  if(a.pcs.length){
+    html += `<div class="detail-section"><div class="detail-label">パソコン</div>`;
+    a.pcs.forEach(d => {
+      html += `<div class="detail-row">
+        <span>${esc(d['商品名'])}</span>
+        <span class="k">シリアル</span><span class="mono">${esc(d['シリアル'])}</span>
+        <span class="k">契約</span><span class="mono">${esc(d['契約番号'])}</span>
+        <span class="k">終了</span><span class="mono">${esc(d['契約終了']) || '—'}</span>
+        ${d['備考'] ? `<span class="k">${esc(d['備考'])}</span>` : ''}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if(a.mob.length){
+    html += `<div class="detail-section"><div class="detail-label">スマホ</div>`;
+    a.mob.forEach(d => {
+      html += `<div class="detail-row">
+        <span>${esc(d['商品名'])}</span>
+        <span class="k">電話番号</span><span class="mono" style="font-weight:600">${esc(d['電話番号'])}</span>
+        <span class="k">製番</span><span class="mono">${esc(d['製番'])}</span>
+        <span class="k">ICCID</span><span class="mono">${esc(d['ICCID'])}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if(a.hf){
+    const hi = hfInfo(a.hf);
+    html += `<div class="detail-section"><div class="detail-label">ヘッドフォン</div>
+      <div class="detail-row">
+        <span class="k">初回貸与</span><span>${esc(a.hf['初回貸与日']) || '不明'}</span>
+        ${hi && hi.date ? `<span class="k">交換可能時期</span><span>${hi.date.getFullYear()}/${String(hi.date.getMonth()+1).padStart(2,'0')}</span>` : ''}
+        ${hi && hi.status === 'eligible' ? '<span class="mark m-hf-ok">交換可能</span>' : ''}
+      </div></div>`;
+  }
+
+  if(a.wifis.length){
+    html += `<div class="detail-section"><div class="detail-label">Wi-Fi</div>`;
+    a.wifis.forEach(d => {
+      html += `<div class="detail-row">
+        <span>${esc(d['商品名'])}</span>
+        <span class="k">シリアル</span><span class="mono">${esc(d['シリアル'])}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // 追加備品
+  html += `<div class="detail-section"><div class="detail-label">追加備品</div>`;
+  if(a.ext.length){
+    a.ext.forEach(d => {
+      html += `<div class="extra-item">
+        <span class="badge b-mac">${esc(d['種別'])}</span>
+        <span class="ri-sub">${esc(d['貸与日'])}${d['備考'] ? ' / ' + esc(d['備考']) : ''}</span>
+        <button class="extra-del" onclick="delExtra(${d['_row']}, '${esc(name)}')">削除</button>
+      </div>`;
+    });
+  }else{
+    html += `<div class="ri-sub" style="padding:4px 0">なし</div>`;
+  }
+  html += `<div class="extra-add">
+    <select id="extra-type-${esc(name)}">
+      ${itemTypes.map(t => `<option value="${esc(t['種別名'])}">${esc(t['種別名'])}</option>`).join('')}
+    </select>
+    <input type="text" id="extra-note-${esc(name)}" placeholder="備考（型番など）">
+    <button class="btn btn-sm" onclick="addExtra('${esc(name)}')">追加</button>
+    <span class="saving" id="extra-save-${esc(name)}"></span>
+  </div></div>`;
+
+  return html;
+}
+
+async function addExtra(name){
+  const type = document.getElementById('extra-type-' + name).value;
+  const note = document.getElementById('extra-note-' + name).value;
+  const label = document.getElementById('extra-save-' + name);
+  label.textContent = '保存中...';
+  try{
+    await apiPost({action:'addExtraItem', owner:name, itemType:type, note:note});
+    await loadData();
+    openCards.add(name);
+    renderPeople();
+  }catch(err){
+    label.textContent = '保存失敗: ' + err.message;
+  }
+}
+
+async function delExtra(rowId, name){
+  if(!confirm('この備品を削除しますか？')) return;
+  try{
+    await apiPost({action:'removeExtraItem', rowId:rowId});
+    await loadData();
+    openCards.add(name);
+    renderPeople();
+  }catch(err){
+    alert('削除失敗: ' + err.message);
+  }
+}
+
+// ---------- 機器一覧 ----------
+function assetRows(type, status){
+  const rows = [];
+  if(type === 'PC' || type === 'Wi-Fi' || type === 'Mac付属品'){
+    devices.filter(d => d['種別'] === type).forEach(d => {
+      rows.push({model:d['商品名'], owner:d['保有者'], id:d['シリアル'], id2:d['契約番号'], end:d['契約終了'], note:d['備考'], status:d['ステータス']});
+    });
+  }else if(type === '携帯'){
+    mobiles.forEach(d => {
+      rows.push({model:d['商品名'], owner:d['保有者'], id:d['電話番号'], id2:d['製番'], end:'', note:'', status:d['ステータス']});
+    });
+  }else if(type === '追加備品'){
+    extras.forEach(d => {
+      rows.push({model:d['種別'], owner:d['保有者'], id:'', id2:'', end:'', note:(d['貸与日'] ? d['貸与日'] + (d['備考'] ? ' / ' + d['備考'] : '') : d['備考']), status:d['ステータス']});
+    });
+  }else if(type === 'ヘッドフォン'){
+    headphones.forEach(d => {
+      const hi = hfInfo(d['ステータス'] !== '返却済' ? d : null);
+      rows.push({model:'ヘッドフォン', owner:d['名前'], id:'', id2:'', end:d['初回貸与日'], note:(hi && hi.status === 'eligible' ? '交換可能' : hi && hi.date ? hi.date.getFullYear() + '/' + String(hi.date.getMonth()+1).padStart(2,'0') + '〜交換可' : ''), status:d['ステータス']});
+    });
+  }
+  return rows.filter(r => !status || r.status === status);
+}
+
+function updateAssetSummary(){
+  const st = document.getElementById('as-status').value;
+  document.getElementById('as-cnt-pc').innerHTML = assetRows('PC', st).length + '<small>台</small>';
+  document.getElementById('as-cnt-mobile').innerHTML = assetRows('携帯', st).length + '<small>台</small>';
+  document.getElementById('as-cnt-wifi').innerHTML = assetRows('Wi-Fi', st).length + '<small>台</small>';
+  document.getElementById('as-cnt-extra').innerHTML = assetRows('追加備品', st).length + '<small>点</small>';
+}
+
+function jumpToPerson(name){
+  showTab('people');
+  document.getElementById('search').value = name;
+  document.getElementById('filter-emp-status').value = '';
+  openCards.add(name);
+  renderPeople();
+}
+
+function renderAssets(){
+  const el = document.getElementById('as-search');
+  if(!el) return;
+  updateAssetSummary();
+  const q = el.value.trim().toLowerCase();
+  const type = document.getElementById('as-type').value;
+  const group = document.getElementById('as-group').value;
+  const status = document.getElementById('as-status').value;
+  const area = document.getElementById('assets-area');
+
+  let rows = assetRows(type, status);
+  if(q){
+    rows = rows.filter(r =>
+      String(r.model).toLowerCase().includes(q) ||
+      String(r.owner).toLowerCase().includes(q) ||
+      String(r.id).toLowerCase().includes(q) ||
+      String(r.id2).toLowerCase().includes(q)
+    );
+  }
+
+  if(!rows.length){
+    area.innerHTML = '<div class="empty">該当なし</div>';
+    return;
+  }
+
+  const idLabel = type === '携帯' ? '電話番号' : type === 'ヘッドフォン' ? '初回貸与日' : 'シリアル';
+
+  if(group === 'model' && type !== 'ヘッドフォン' && type !== '追加備品'){
+    // 機種ごとにグルーピング
+    const groups = {};
+    rows.forEach(r => {
+      if(!groups[r.model]) groups[r.model] = [];
+      groups[r.model].push(r);
+    });
+    // 台数の多い順
+    const sorted = Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
+    area.innerHTML = sorted.map(([model, list]) => `
+      <div class="model-group">
+        <div class="model-head">
+          <span class="model-name">${esc(model)}</span>
+          <span class="model-count">${list.length}台</span>
+        </div>
+        <div class="model-rows">
+          ${list.map(r => `<div class="model-row">
+            <span class="mr-owner"><span class="lnk" onclick="jumpToPerson('${esc(r.owner)}')">${esc(r.owner)}</span></span>
+            <span class="mono">${esc(r.id)}</span>
+            ${r.end ? `<span class="sub">終了 ${esc(r.end)}</span>` : ''}
+            ${r.note ? `<span class="sub">${esc(r.note)}</span>` : ''}
+          </div>`).join('')}
+        </div>
+      </div>`).join('');
+  }else{
+    // フラット一覧
+    area.innerHTML = `<div class="card"><table class="asset-table">
+      <thead><tr><th>${type === '追加備品' ? '種別' : '機種'}</th><th>保有者</th><th>${idLabel}</th><th>備考</th></tr></thead>
+      <tbody>${rows.map(r => `<tr>
+        <td class="sub">${esc(r.model)}</td>
+        <td style="font-weight:600"><span class="lnk" style="cursor:pointer;color:var(--blue)" onclick="jumpToPerson('${esc(r.owner)}')">${esc(r.owner)}</span></td>
+        <td class="mono">${esc(type === 'ヘッドフォン' ? r.end : r.id) || '—'}</td>
+        <td class="sub">${esc(r.note)}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+}
+
+// ---------- 発注メール ----------
+let mailType = 'order';
+function setMailType(type){
+  mailType = type;
+  document.getElementById('form-order').style.display = type === 'order' ? 'block' : 'none';
+  document.getElementById('form-exchange').style.display = type === 'exchange' ? 'block' : 'none';
+  document.getElementById('btn-order').classList.toggle('active', type === 'order');
+  document.getElementById('btn-exchange').classList.toggle('active', type === 'exchange');
+}
+
+function buildStaffList(){
+  const names = new Set();
+  employees.forEach(e => names.add(e['名前']));
+  document.getElementById('staff-list').innerHTML =
+    [...names].filter(Boolean).map(n => `<option value="${esc(n)}">`).join('');
+}
+
+function mailFooter(){
+  return (config['会社名'] || 'ナウビレッジ株式会社') + '\n' + (config['部署名'] || '管理部') + ' ' + (config['署名者名'] || '');
+}
+function mailHeader(){
+  const to = config['発注先会社'] || '株式会社SSマーケット';
+  const person = config['発注先担当者'] || 'ご担当者様';
+  const name = (config['署名者名'] || '').split(' ')[0];
+  return to + ' ' + person + '\n\nお世話になっております。\n' + (config['会社名'] || 'ナウビレッジ株式会社') + 'の' + name + 'です。';
+}
+
+function genOrderMail(){
+  const date = document.getElementById('join-date').value;
+  const count = document.getElementById('join-count').value || '1';
+  const device = document.getElementById('device-type').value;
+  const office = document.getElementById('office').value;
+  const dateStr = date ? date.replace(/-/g, '/') : '____/__/__';
+  const deviceLine = device === 'both' ? 'PC・携帯' : device === 'pc' ? 'PC' : '携帯';
+  const officeLine = office === 'no' ? '\n※Officeライセンスは不要です' : '';
+  document.getElementById('mail-output').textContent =
+`${mailHeader()}
+
+▼ ${deviceLine}の発注依頼
+
+下記の通り、正社員${count}名の入社が決定いたしましたので、ご手配をお願いできますでしょうか。
+
+■ 入社
+${dateStr}入社：${count}名
+
+※${deviceLine}は現状お借りしているものと同スペックにてご手配をお願いできればと思います${officeLine}
+※オフィスなし
+
+お忙しいところ恐縮ですが、上記についてご確認いただけますと幸いです。
+何卒よろしくお願いいたします。
+
+${mailFooter()}`;
+}
+
+function genExchangeMail(){
+  const name = document.getElementById('ex-name').value || '●●';
+  const device = document.getElementById('ex-device').value || '●●';
+  const serial = document.getElementById('ex-serial').value || '●●';
+  const issue = document.getElementById('ex-issue').value || '不具合が生じているため';
+  document.getElementById('mail-output').textContent =
+`${mailHeader()}
+
+▼ PC交換依頼
+
+下記PCにつきまして、${issue}、交換をさせていただきたくご連絡いたします。
+
+・対象者：${name}
+・商品名：${device}
+・シリアル番号：${serial}
+
+※交換品は現状お借りしているものと同スペックにてご手配をお願いできればと思います
+
+お忙しいところ恐縮ですが、上記についてご確認いただけますと幸いです。
+何卒よろしくお願いいたします。
+
+${mailFooter()}`;
+}
+
+function copyMail(){
+  navigator.clipboard.writeText(document.getElementById('mail-output').textContent).then(() => {
+    const n = document.getElementById('copy-note');
+    n.style.display = 'inline';
+    setTimeout(() => n.style.display = 'none', 2000);
+  });
+}
+
+// ---------- タブ ----------
+function showTab(name){
+  ['people','assets','mail','retire'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === name);
+  });
+}
+
+// ---------- 退職処理 ----------
+function buildRetireSelect(){
+  const sel = document.getElementById('retire-select');
+  const current = sel.value;
+  const candidates = employees.filter(e =>
+    (e['在籍状況'] === '在籍中' || e['在籍状況'] === '退職予定') &&
+    e['名前'] !== '貸出用' && e['名前'] !== '派遣'
+  );
+  sel.innerHTML = '<option value="">退職する社員を選択...</option>' +
+    candidates.map(e => `<option value="${esc(e['名前'])}" ${e['名前'] === current ? 'selected' : ''}>${esc(e['名前'])}${e['在籍状況'] === '退職予定' ? '（退職予定）' : ''}</option>`).join('');
+}
+
+function renderRetire(){
+  const name = document.getElementById('retire-select').value;
+  const area = document.getElementById('retire-area');
+  if(!name){
+    area.innerHTML = '<div class="empty">社員を選択してください</div>';
+    return;
+  }
+  const emp = employees.find(e => e['名前'] === name);
+  const a = personAssets(name);
+  const items = [];
+
+  a.pcs.forEach(d => items.push({sheet:'通信機器', key:d['シリアル'], type:d['種別'], label:d['商品名'], sub:'シリアル: ' + d['シリアル'], canSlide:true}));
+  a.wifis.forEach(d => items.push({sheet:'通信機器', key:d['シリアル'], type:'Wi-Fi', label:d['商品名'], sub:'シリアル: ' + d['シリアル'], canSlide:true}));
+  a.mob.forEach(d => items.push({sheet:'社用携帯', key:d['製番'], type:'携帯', label:d['商品名'], sub:'電話番号: ' + d['電話番号'], canSlide:true}));
+  if(a.hf) items.push({sheet:'ヘッドフォン', key:name, type:'ヘッドフォン', label:'ヘッドフォン', sub:'初回貸与: ' + (a.hf['初回貸与日'] || '不明'), canSlide:false});
+  a.ext.forEach(d => items.push({sheet:'追加備品', key:String(d['_row']), type:d['種別'], label:d['種別'], sub:d['備考'] || '', canSlide:false, isExtra:true, rowId:d['_row']}));
+
+  const activeEmployees = employees.filter(e => e['在籍状況'] === '在籍中' && e['名前'] !== name && e['名前'] !== '貸出用' && e['名前'] !== '派遣');
+
+  let html = '';
+  if(emp['在籍状況'] === '在籍中'){
+    html += `<div class="btn-row" style="margin:0 0 16px">
+      <button class="btn btn-warn" onclick="setEmpStatus('${esc(name)}', '退職予定')">退職予定にする</button>
+      <span class="ri-sub">まず退職予定に変更してから機器を処理してください</span>
+    </div>`;
+  }
+
+  if(!items.length){
+    html += `<div class="empty" style="padding:1.5rem">貸与物はすべて処理済みです</div>`;
+    html += `<div class="btn-row"><button class="btn btn-danger" onclick="setEmpStatus('${esc(name)}', '退職済み')">退職済みにする</button></div>`;
+  }else{
+    html += items.map((it, i) => {
+      const badgeCls = it.type === 'PC' || it.type === 'Mac付属品' ? 'b-pc' : it.type === '携帯' ? 'b-mobile' : it.type === 'Wi-Fi' ? 'b-wifi' : it.type === 'ヘッドフォン' ? 'b-hf' : 'b-mac';
+      let actions = '';
+      if(it.isExtra){
+        actions = `<button class="btn btn-sm" onclick="retireExtra(${it.rowId}, '${esc(name)}')">回収（削除）</button>`;
+      }else if(it.canSlide){
+        actions = `
+          <button class="btn btn-sm" onclick="retireReturn('${esc(it.sheet)}', '${esc(it.key)}', '${esc(name)}')">返却</button>
+          <select id="slide-to-${i}">
+            <option value="">スライド先...</option>
+            ${activeEmployees.map(e => `<option value="${esc(e['名前'])}">${esc(e['名前'])}</option>`).join('')}
+          </select>
+          <button class="btn btn-sm" onclick="retireSlide('${esc(it.sheet)}', '${esc(it.key)}', '${esc(name)}', ${i})">スライド</button>
+          <button class="btn btn-sm" onclick="retireStock('${esc(it.sheet)}', '${esc(it.key)}', '${esc(name)}')">ストック化</button>`;
+      }else{
+        actions = `<button class="btn btn-sm" onclick="retireReturn('${esc(it.sheet)}', '${esc(it.key)}', '${esc(name)}')">回収済みにする</button>`;
+      }
+      return `<div class="retire-item">
+        <span class="badge ${badgeCls}">${esc(it.type)}</span>
+        <div class="ri-info">
+          <div class="ri-name">${esc(it.label)}</div>
+          <div class="ri-sub">${esc(it.sub)}</div>
+        </div>
+        <div class="ri-actions">${actions}</div>
+      </div>`;
+    }).join('');
+    html += `<div class="ri-sub" style="margin-top:10px">残り ${items.length} 点。全機器の処理が終わると「退職済みにする」ボタンが出ます。</div>`;
+  }
+
+  area.innerHTML = html;
+}
+
+async function setEmpStatus(name, status){
+  try{
+    await apiPost({action:'updateEmployeeStatus', name:name, status:status});
+    await loadData();
+    document.getElementById('retire-select').value = status === '退職済み' ? '' : name;
+    renderRetire();
+    showTab('retire');
+  }catch(err){
+    alert('更新失敗: ' + err.message);
+  }
+}
+
+async function retireReturn(sheet, key, name){
+  try{
+    await apiPost({action:'updateStatus', sheet:sheet, key:key, status:'返却済'});
+    await loadData();
+    document.getElementById('retire-select').value = name;
+    renderRetire();
+    showTab('retire');
+  }catch(err){
+    alert('更新失敗: ' + err.message);
+  }
+}
+
+async function retireSlide(sheet, key, oldOwner, idx){
+  const newOwner = document.getElementById('slide-to-' + idx).value;
+  if(!newOwner){
+    alert('スライド先を選択してください');
+    return;
+  }
+  try{
+    await apiPost({action:'transferDevice', sheet:sheet, key:key, newOwner:newOwner, oldOwner:oldOwner});
+    await loadData();
+    document.getElementById('retire-select').value = oldOwner;
+    renderRetire();
+    showTab('retire');
+  }catch(err){
+    alert('更新失敗: ' + err.message);
+  }
+}
+
+async function retireStock(sheet, key, oldOwner){
+  try{
+    await apiPost({action:'transferDevice', sheet:sheet, key:key, newOwner:'貸出用', oldOwner:oldOwner});
+    await loadData();
+    document.getElementById('retire-select').value = oldOwner;
+    renderRetire();
+    showTab('retire');
+  }catch(err){
+    alert('更新失敗: ' + err.message);
+  }
+}
+
+async function retireExtra(rowId, name){
+  if(!confirm('この備品を回収（データ削除）しますか？')) return;
+  try{
+    await apiPost({action:'removeExtraItem', rowId:rowId});
+    await loadData();
+    document.getElementById('retire-select').value = name;
+    renderRetire();
+    showTab('retire');
+  }catch(err){
+    alert('削除失敗: ' + err.message);
+  }
+}
+
+// ---------- 初期化 ----------
+loadData();
+</script>
+</body>
+</html>
