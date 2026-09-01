@@ -122,6 +122,14 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
 .edit-link{font-size:11px;color:var(--blue);cursor:pointer;border:none;background:none;padding:2px 6px;white-space:nowrap}
 .edit-link:hover{text-decoration:underline}
 .add-device-row{margin-top:10px}
+.ocr-box{background:var(--blue-light);border:1px solid #bcd8f5;border-radius:8px;padding:12px 14px;margin-bottom:4px}
+.ocr-lead{font-size:12px;color:var(--blue-dark);margin-bottom:8px}
+.ocr-status{font-size:12px;color:var(--text-sub);margin-left:8px}
+.ocr-status.err{color:var(--red)}
+.ocr-hit{display:flex;align-items:center;gap:8px;background:var(--white);border:1px solid var(--border);border-radius:6px;padding:7px 10px;margin-top:6px;flex-wrap:wrap}
+.ocr-hit-main{flex:1;min-width:180px;font-size:12px}
+.ocr-hit-main b{font-size:13px}
+.ocr-warn{font-size:11px;color:var(--amber);background:var(--amber-light);border-radius:99px;padding:1px 8px;font-weight:600}
 .model-group{background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden}
 .model-head{display:flex;align-items:center;gap:10px;padding:11px 16px;background:var(--bg);border-bottom:1px solid var(--border)}
 .model-name{font-size:13px;font-weight:600;flex:1}
@@ -296,9 +304,14 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
 
 <script>
 // ============================================================
-// 設定: GASデプロイURLをここに貼り付け
+// 設定
 // ============================================================
+// GASデプロイURL
 const GAS_URL = 'https://script.google.com/macros/s/AKfycby3VPMBTQE5FAHbHLrcT2TyNdEmVP7aHdwX4WHOf7X3JluXK6qp-FD51F8mGdOOevwN/exec';
+
+// 貸与書類の自動読み取り。gas/ocr.gs の設置とGEMINI_API_KEYの登録が済んだら true にする
+// （false の間は「書類を撮影」ボタンは表示されない）
+const OCR_ENABLED = false;
 
 let employees = [];
 let devices = [];
@@ -1016,9 +1029,120 @@ async function submitAddEmployee(){
   }
 }
 
+// ---------- 書類の読み取り（OCR） ----------
+// スマホで貸与書類を撮影し、Gemini APIで項目を抽出してフォームに流し込む。
+// 抽出結果は必ず目視で確認してから登録すること（シリアルの誤読が起こりうるため）。
+// GAS側（gas/ocr.gs）の設置とAPIキー登録が済んだら OCR_ENABLED を true にする。
+
+function ocrBoxHtml(){
+  if(!OCR_ENABLED) return '';
+  return `<div class="ocr-box">
+    <div class="ocr-lead">貸与書類を撮影すると、シリアル・契約番号・契約日を自動で読み取ります（最大5枚）。</div>
+    <button class="btn btn-sm" type="button" onclick="document.getElementById('ocr-file').click()">書類を撮影 / 画像を選ぶ</button>
+    <span class="ocr-status" id="ocr-status"></span>
+    <input type="file" id="ocr-file" accept="image/*" capture="environment" multiple style="display:none" onchange="runOcr()">
+    <div id="ocr-result"></div>
+  </div>`;
+}
+
+let ocrDevices = [];
+
+async function runOcr(){
+  const input = document.getElementById('ocr-file');
+  const status = document.getElementById('ocr-status');
+  const result = document.getElementById('ocr-result');
+  const files = [...input.files].slice(0, 5);
+  input.value = '';                       // 同じ画像を選び直せるようにする
+  if(!files.length) return;
+
+  status.className = 'ocr-status';
+  status.textContent = '画像を準備中...';
+  result.innerHTML = '';
+  ocrDevices = [];
+  try{
+    const images = [];
+    for(const f of files) images.push(await imageToBase64(f, 1600));
+    status.textContent = '読み取り中...（10秒ほどかかります）';
+    const res = await apiPost({action:'ocrDocument', images:images});
+    ocrDevices = res.devices || [];
+    if(!ocrDevices.length){
+      status.className = 'ocr-status err';
+      status.textContent = '機器情報を見つけられませんでした。明るい場所で撮り直してください。';
+      return;
+    }
+    status.textContent = ocrDevices.length + '件を読み取りました。内容を確認して選んでください。';
+    result.innerHTML = ocrDevices.map((d, i) => `<div class="ocr-hit">
+      <div class="ocr-hit-main">
+        <b>${esc(d.model) || '(機種名なし)'}</b> <span class="sub">${esc(d.kind)}</span><br>
+        <span class="mono">${esc(d.serial) || 'シリアル未検出'}</span>
+        ${d.contractNo ? `<span class="sub"> / 契約 ${esc(d.contractNo)}</span>` : ''}
+        ${d.endDate ? `<span class="sub"> / 終了 ${esc(d.endDate)}</span>` : ''}
+        ${d.note ? `<br><span class="sub">${esc(d.note)}</span>` : ''}
+      </div>
+      ${d.confidence === 'low' ? '<span class="ocr-warn">要確認</span>' : ''}
+      <button class="btn btn-sm" type="button" onclick="applyOcr(${i})">入力する</button>
+    </div>`).join('');
+  }catch(err){
+    status.className = 'ocr-status err';
+    status.textContent = '読み取り失敗: ' + err.message;
+  }
+}
+
+// 撮影画像は数MBになるため、長辺を縮めてJPEGにしてから送る
+function imageToBase64(file, maxSide){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale);
+      c.height = Math.round(img.height * scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve({mimeType:'image/jpeg', data:c.toDataURL('image/jpeg', 0.85).split(',')[1]});
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('画像を読み込めませんでした')); };
+    img.src = url;
+  });
+}
+
+// 読み取り結果を登録フォームへ流し込む（保存はせず、目視確認してから登録する）
+function applyOcr(i){
+  const d = ocrDevices[i];
+  if(!d) return;
+  const kindSel = document.getElementById('m-kind');
+  const kind = ['PC', 'スマホ', 'Wi-Fi', 'Mac付属品'].includes(d.kind) ? d.kind : 'PC';
+  kindSel.value = kind;
+  renderAddDeviceFields();
+  setVal('m-model', d.model);
+  if(kind === 'スマホ'){
+    setVal('m-seiban', d.serial);
+    setVal('m-tel', d.tel);
+    setVal('m-iccid', d.iccid);
+  }else{
+    setVal('m-serial', d.serial);
+    setVal('m-keiyaku', d.contractNo);
+    setVal('m-start', toDateInput(d.startDate));
+    setVal('m-end', toDateInput(d.endDate));
+    setVal('m-note', d.note);
+  }
+  document.getElementById('ocr-status').textContent = '入力しました。内容（特にシリアル）を確認してから登録してください。';
+}
+
+function setVal(id, value){
+  const el = document.getElementById(id);
+  if(el && value) el.value = value;
+}
+function toDateInput(s){
+  const m = String(s || '').match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+  return m ? m[1] + '-' + m[2] + '-' + m[3] : '';
+}
+
 // ---------- 機器の新規登録 ----------
 function openAddDevice(owner){
   showModal('機器を追加 — ' + owner,
+    ocrBoxHtml() +
     fSelect('m-kind', '機器の種類', ['PC', 'スマホ', 'Wi-Fi', 'Mac付属品'], 'PC') +
     `<div id="m-device-fields"></div>`,
     `<button class="btn" onclick="closeModal()">キャンセル</button>
