@@ -64,8 +64,8 @@ body{font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sa
 .detail-section{margin-bottom:14px}
 .detail-section:last-child{margin-bottom:0}
 .detail-label{font-size:11px;font-weight:600;color:var(--text-sub);margin-bottom:6px}
-.detail-row{display:flex;align-items:baseline;gap:10px;font-size:13px;padding:4px 0;flex-wrap:wrap}
-.detail-row .k{color:var(--text-sub);font-size:12px;min-width:90px}
+.detail-row{display:flex;align-items:baseline;gap:4px 14px;font-size:13px;padding:4px 0;flex-wrap:wrap}
+.detail-row .k{color:var(--text-muted);font-size:11px;margin-right:-8px}
 .detail-row .mono{font-family:"SF Mono",Consolas,Menlo,monospace;font-size:12px}
 .extra-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 0}
 .extra-del{font-size:11px;color:var(--red);cursor:pointer;border:none;background:none;padding:2px 6px}
@@ -104,6 +104,18 @@ body{font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sa
 .ri-done{font-size:11px;color:var(--green);font-weight:600}
 .saving{font-size:11px;color:var(--amber)}
 footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:100;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+.modal-bg.show{display:flex}
+.modal{background:var(--white);border-radius:10px;width:100%;max-width:520px;padding:22px 24px;box-shadow:0 8px 30px rgba(0,0,0,0.2)}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:16px}
+.modal-form{display:flex;flex-direction:column;gap:12px}
+.modal-form .form-group input,.modal-form .form-group select{width:100%}
+.modal-btns{display:flex;gap:8px;margin-top:18px;justify-content:flex-end;align-items:center}
+.modal-btns .left{margin-right:auto}
+.modal-err{font-size:12px;color:var(--red);margin-top:8px;display:none}
+.edit-link{font-size:11px;color:var(--blue);cursor:pointer;border:none;background:none;padding:2px 6px;white-space:nowrap}
+.edit-link:hover{text-decoration:underline}
+.add-device-row{margin-top:10px}
 .model-group{background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden}
 .model-head{display:flex;align-items:center;gap:10px;padding:11px 16px;background:var(--bg);border-bottom:1px solid var(--border)}
 .model-name{font-size:13px;font-weight:600;flex:1}
@@ -174,6 +186,7 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
       <option value="no-mobile">スマホ未貸与</option>
       <option value="hf-ok">HF交換可能</option>
     </select>
+    <button class="btn btn-primary" onclick="openAddEmployee()">＋ 社員追加</button>
   </div>
   <div class="emp-list" id="emp-list"></div>
 </div>
@@ -263,6 +276,15 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
 
 </div><!-- /content -->
 </div><!-- /container -->
+
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-form" id="modal-form"></div>
+    <div class="modal-err" id="modal-err"></div>
+    <div class="modal-btns" id="modal-btns"></div>
+  </div>
+</div>
 
 <footer>nv-devices | ナウビレッジ株式会社 管理部</footer>
 
@@ -461,6 +483,7 @@ function renderDetail(name){
         <span class="k">契約</span><span class="mono">${esc(d['契約番号'])}</span>
         <span class="k">終了</span><span class="mono">${esc(d['契約終了']) || '—'}</span>
         ${d['備考'] ? `<span class="k">${esc(d['備考'])}</span>` : ''}
+        <button class="edit-link" onclick="openEditDevice('通信機器','${esc(d['シリアル'])}','${esc(name)}')">編集</button>
       </div>`;
     });
     html += `</div>`;
@@ -474,6 +497,7 @@ function renderDetail(name){
         <span class="k">電話番号</span><span class="mono" style="font-weight:600">${esc(d['電話番号'])}</span>
         <span class="k">製番</span><span class="mono">${esc(d['製番'])}</span>
         <span class="k">ICCID</span><span class="mono">${esc(d['ICCID'])}</span>
+        <button class="edit-link" onclick="openEditDevice('社用携帯','${esc(d['製番'])}','${esc(name)}')">編集</button>
       </div>`;
     });
     html += `</div>`;
@@ -486,6 +510,7 @@ function renderDetail(name){
         <span class="k">初回貸与</span><span>${esc(a.hf['初回貸与日']) || '不明'}</span>
         ${hi && hi.date ? `<span class="k">交換可能時期</span><span>${hi.date.getFullYear()}/${String(hi.date.getMonth()+1).padStart(2,'0')}</span>` : ''}
         ${hi && hi.status === 'eligible' ? '<span class="mark m-hf-ok">交換可能</span>' : ''}
+        <button class="edit-link" onclick="openEditDevice('ヘッドフォン','${esc(name)}','${esc(name)}')">編集</button>
       </div></div>`;
   }
 
@@ -495,6 +520,7 @@ function renderDetail(name){
       html += `<div class="detail-row">
         <span>${esc(d['商品名'])}</span>
         <span class="k">シリアル</span><span class="mono">${esc(d['シリアル'])}</span>
+        <button class="edit-link" onclick="openEditDevice('通信機器','${esc(d['シリアル'])}','${esc(name)}')">編集</button>
       </div>`;
     });
     html += `</div>`;
@@ -520,7 +546,11 @@ function renderDetail(name){
     <input type="text" id="extra-note-${esc(name)}" placeholder="備考（型番など）">
     <button class="btn btn-sm" onclick="addExtra('${esc(name)}')">追加</button>
     <span class="saving" id="extra-save-${esc(name)}"></span>
-  </div></div>`;
+  </div></div>
+
+  <div class="add-device-row">
+    <button class="btn btn-sm" onclick="openAddDevice('${esc(name)}')">＋ 機器を追加（PC / スマホ / Wi-Fi）</button>
+  </div>`;
 
   return html;
 }
@@ -891,6 +921,224 @@ async function retireExtra(rowId, name){
     showTab('retire');
   }catch(err){
     alert('削除失敗: ' + err.message);
+  }
+}
+
+// ---------- モーダル ----------
+function showModal(title, formHtml, btnsHtml){
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-form').innerHTML = formHtml;
+  document.getElementById('modal-btns').innerHTML = btnsHtml;
+  const err = document.getElementById('modal-err');
+  err.style.display = 'none';
+  err.textContent = '';
+  document.getElementById('modal-bg').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('modal-bg').classList.remove('show');
+}
+function modalError(msg){
+  const err = document.getElementById('modal-err');
+  err.textContent = msg;
+  err.style.display = 'block';
+}
+function fInput(id, label, value, placeholder, type){
+  return `<div class="form-group"><label>${esc(label)}</label><input type="${type || 'text'}" id="${id}" value="${esc(value || '')}" placeholder="${esc(placeholder || '')}"></div>`;
+}
+function fSelect(id, label, options, selected){
+  return `<div class="form-group"><label>${esc(label)}</label><select id="${id}">${options.map(o => `<option value="${esc(o)}" ${o === selected ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div>`;
+}
+function ownerOptions(){
+  return employees.filter(e => e['在籍状況'] !== '退職済み').map(e => e['名前']);
+}
+function mv(id){
+  const el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
+
+// ---------- 社員追加 ----------
+function openAddEmployee(){
+  showModal('社員を追加',
+    fInput('m-name', '名前（姓と名の間は半角スペース）', '', '例：山田 太郎') +
+    fInput('m-hfdate', 'ヘッドフォン初回貸与日（未定なら空欄）', '', '', 'date') +
+    fInput('m-note', '備考', '', ''),
+    `<button class="btn" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="submitAddEmployee()">追加</button>`
+  );
+}
+async function submitAddEmployee(){
+  const name = mv('m-name');
+  if(!name){ modalError('名前を入力してください'); return; }
+  const hfDate = mv('m-hfdate').replace(/-/g, '/');
+  try{
+    await apiPost({action:'addEmployee', name:name, note:mv('m-note'), hfDate:hfDate});
+    closeModal();
+    await loadData();
+    openCards.add(name);
+    renderPeople();
+  }catch(err){
+    modalError('追加失敗: ' + err.message);
+  }
+}
+
+// ---------- 機器の新規登録 ----------
+function openAddDevice(owner){
+  showModal('機器を追加 — ' + owner,
+    fSelect('m-kind', '機器の種類', ['PC', 'スマホ', 'Wi-Fi', 'Mac付属品'], 'PC') +
+    `<div id="m-device-fields"></div>`,
+    `<button class="btn" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="submitAddDevice('${esc(owner)}')">登録</button>`
+  );
+  document.getElementById('m-kind').addEventListener('change', renderAddDeviceFields);
+  renderAddDeviceFields();
+}
+function renderAddDeviceFields(){
+  const kind = mv('m-kind');
+  const area = document.getElementById('m-device-fields');
+  if(kind === 'スマホ'){
+    area.innerHTML =
+      fInput('m-model', '商品名', 'au SCG33') +
+      fInput('m-seiban', '製番（必須）', '', '') +
+      fInput('m-tel', '電話番号', '', '例：080-1234-5678') +
+      fInput('m-iccid', 'ICCID', '') +
+      fInput('m-moushikomi', '申込番号', '');
+  }else{
+    area.innerHTML =
+      fInput('m-model', '商品名', kind === 'Wi-Fi' ? 'Pocket WiFi SoftBank 602HW' : kind === 'PC' ? 'Latitude 5320' : '') +
+      fInput('m-serial', 'シリアル（必須）', '') +
+      fInput('m-keiyaku', '契約番号', '') +
+      fInput('m-start', '契約開始', '', '', 'date') +
+      fInput('m-end', '契約終了', '', '', 'date') +
+      fInput('m-note', '備考', '');
+  }
+}
+async function submitAddDevice(owner){
+  const kind = mv('m-kind');
+  try{
+    if(kind === 'スマホ'){
+      if(!mv('m-seiban')){ modalError('製番を入力してください'); return; }
+      await apiPost({action:'addDevice', sheet:'社用携帯', row:{
+        '保有者':owner, '商品名':mv('m-model'), '製番':mv('m-seiban'),
+        '電話番号':mv('m-tel'), 'ICCID':mv('m-iccid'), '申込番号':mv('m-moushikomi'),
+        'ステータス':'使用中'
+      }});
+    }else{
+      if(!mv('m-serial')){ modalError('シリアルを入力してください'); return; }
+      await apiPost({action:'addDevice', sheet:'通信機器', row:{
+        '保有者':owner, '種別':kind === 'スマホ' ? '携帯' : kind, '商品名':mv('m-model'),
+        'シリアル':mv('m-serial'), '契約番号':mv('m-keiyaku'),
+        '契約開始':mv('m-start').replace(/-/g, '/'), '契約終了':mv('m-end').replace(/-/g, '/'),
+        '備考':mv('m-note'), 'ステータス':'使用中'
+      }});
+    }
+    closeModal();
+    await loadData();
+    openCards.add(owner);
+    renderPeople();
+  }catch(err){
+    modalError('登録失敗: ' + err.message);
+  }
+}
+
+// ---------- 機器の編集 ----------
+function openEditDevice(sheet, key, owner){
+  if(sheet === '通信機器'){
+    const d = devices.find(x => x['シリアル'] === key);
+    if(!d) return;
+    showModal('機器を編集',
+      fSelect('m-owner', '保有者', ownerOptions(), d['保有者']) +
+      fSelect('m-kind', '種別', ['PC', 'Wi-Fi', 'Mac付属品'], d['種別']) +
+      fInput('m-model', '商品名', d['商品名']) +
+      fInput('m-serial', 'シリアル', d['シリアル']) +
+      fInput('m-keiyaku', '契約番号', d['契約番号']) +
+      fInput('m-start', '契約開始（yyyy/mm/dd）', d['契約開始']) +
+      fInput('m-end', '契約終了（yyyy/mm/dd）', d['契約終了']) +
+      fInput('m-note', '備考', d['備考']) +
+      fSelect('m-status', 'ステータス', ['使用中', '返却済'], d['ステータス']),
+      `<button class="btn btn-danger left" onclick="submitDeleteDevice('通信機器', 'シリアル', '${esc(key)}', '${esc(owner)}')">この機器を削除</button>
+       <button class="btn" onclick="closeModal()">キャンセル</button>
+       <button class="btn btn-primary" onclick="submitEditDevice('通信機器', 'シリアル', '${esc(key)}', '${esc(owner)}')">保存</button>`
+    );
+  }else if(sheet === '社用携帯'){
+    const d = mobiles.find(x => x['製番'] === key);
+    if(!d) return;
+    showModal('スマホを編集',
+      fSelect('m-owner', '保有者', ownerOptions(), d['保有者']) +
+      fInput('m-model', '商品名', d['商品名']) +
+      fInput('m-seiban', '製番', d['製番']) +
+      fInput('m-tel', '電話番号', d['電話番号']) +
+      fInput('m-iccid', 'ICCID', d['ICCID']) +
+      fInput('m-moushikomi', '申込番号', d['申込番号']) +
+      fSelect('m-status', 'ステータス', ['使用中', '返却済'], d['ステータス']),
+      `<button class="btn btn-danger left" onclick="submitDeleteDevice('社用携帯', '製番', '${esc(key)}', '${esc(owner)}')">このスマホを削除</button>
+       <button class="btn" onclick="closeModal()">キャンセル</button>
+       <button class="btn btn-primary" onclick="submitEditDevice('社用携帯', '製番', '${esc(key)}', '${esc(owner)}')">保存</button>`
+    );
+  }else if(sheet === 'ヘッドフォン'){
+    const d = headphones.find(x => x['名前'] === key);
+    if(!d) return;
+    showModal('ヘッドフォンを編集 — ' + key,
+      fInput('m-first', '初回貸与日（yyyy/mm/dd）', d['初回貸与日']) +
+      fInput('m-ex1', '1回目交換', d['1回目交換']) +
+      fInput('m-ex2', '2回目交換', d['2回目交換']) +
+      fInput('m-ex3', '3回目交換', d['3回目交換']) +
+      fInput('m-note', '備考', d['備考']) +
+      fSelect('m-status', 'ステータス', ['使用中', '返却済'], d['ステータス']),
+      `<button class="btn" onclick="closeModal()">キャンセル</button>
+       <button class="btn btn-primary" onclick="submitEditHf('${esc(key)}', '${esc(owner)}')">保存</button>`
+    );
+  }
+}
+async function submitEditDevice(sheet, keyCol, key, owner){
+  try{
+    let values;
+    if(sheet === '通信機器'){
+      values = {
+        '保有者':mv('m-owner'), '種別':mv('m-kind'), '商品名':mv('m-model'),
+        'シリアル':mv('m-serial'), '契約番号':mv('m-keiyaku'),
+        '契約開始':mv('m-start'), '契約終了':mv('m-end'),
+        '備考':mv('m-note'), 'ステータス':mv('m-status')
+      };
+    }else{
+      values = {
+        '保有者':mv('m-owner'), '商品名':mv('m-model'), '製番':mv('m-seiban'),
+        '電話番号':mv('m-tel'), 'ICCID':mv('m-iccid'), '申込番号':mv('m-moushikomi'),
+        'ステータス':mv('m-status')
+      };
+    }
+    await apiPost({action:'updateRow', sheet:sheet, keyCol:keyCol, key:key, values:values});
+    closeModal();
+    await loadData();
+    openCards.add(owner);
+    renderPeople();
+  }catch(err){
+    modalError('保存失敗: ' + err.message);
+  }
+}
+async function submitEditHf(key, owner){
+  try{
+    await apiPost({action:'updateRow', sheet:'ヘッドフォン', keyCol:'名前', key:key, values:{
+      '初回貸与日':mv('m-first'), '1回目交換':mv('m-ex1'), '2回目交換':mv('m-ex2'),
+      '3回目交換':mv('m-ex3'), '備考':mv('m-note'), 'ステータス':mv('m-status')
+    }});
+    closeModal();
+    await loadData();
+    openCards.add(owner);
+    renderPeople();
+  }catch(err){
+    modalError('保存失敗: ' + err.message);
+  }
+}
+async function submitDeleteDevice(sheet, keyCol, key, owner){
+  if(!confirm('この機器のデータを完全に削除しますか？（返却済みにする場合はステータスを変更してください）')) return;
+  try{
+    await apiPost({action:'deleteRow', sheet:sheet, keyCol:keyCol, key:key});
+    closeModal();
+    await loadData();
+    openCards.add(owner);
+    renderPeople();
+  }catch(err){
+    modalError('削除失敗: ' + err.message);
   }
 }
 
