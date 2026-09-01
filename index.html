@@ -48,6 +48,11 @@ body{font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sa
 .st-active{background:var(--green-light);color:var(--green)}
 .st-leaving{background:var(--amber-light);color:var(--amber)}
 .st-left{background:var(--bg);color:var(--text-muted);border:1px solid var(--border)}
+.emp-kind{font-size:10px;padding:1px 8px;border-radius:99px;font-weight:600;border:1px solid transparent}
+.k-exec{background:var(--purple-light);color:var(--purple)}
+.k-staff{background:var(--bg);color:var(--text-sub);border-color:var(--border)}
+.k-haken{background:var(--blue-light);color:var(--blue-dark)}
+.k-part{background:var(--green-light);color:var(--green)}
 .emp-marks{display:flex;gap:6px;flex:1;flex-wrap:wrap}
 .mark{font-size:11px;padding:3px 10px;border-radius:99px;font-weight:600;white-space:nowrap}
 .m-on{background:var(--blue-light);color:var(--blue-dark)}
@@ -381,6 +386,29 @@ function hfInfo(hf){
   return {status:'wait', label:'HF（' + ym + '〜交換可）', date:eligibleDate};
 }
 
+// ---------- 雇用区分 ----------
+// スプレッドシートに「雇用区分」列があればその値を優先。無い場合は下記の名簿（姓）で判定し、
+// 該当しない社員はすべて「正社員」として扱う。
+const EMP_KIND = {
+  '小川':'派遣社員',
+  '藤澤':'アルバイト',
+  '今村':'取締役', '田開':'取締役', '髙山':'取締役', '三宮':'取締役'
+};
+const KIND_CLASS = {'取締役':'k-exec', '派遣社員':'k-haken', 'アルバイト':'k-part', '正社員':'k-staff'};
+
+function empKind(e){
+  const name = e['名前'] || '';
+  if(name === '貸出用' || name === '派遣') return '';  // 機器のストック枠なので区分なし
+  if(e['雇用区分']) return e['雇用区分'];
+  const sur = name.split(/[ 　]/)[0].replace(/高/g, '髙').replace(/沢/g, '澤');
+  return EMP_KIND[sur] || '正社員';
+}
+function empKindTag(e){
+  const k = empKind(e);
+  if(!k) return '';
+  return `<span class="emp-kind ${KIND_CLASS[k] || 'k-staff'}">${esc(k)}</span>`;
+}
+
 // ---------- サマリー ----------
 function updateSummary(){
   const active = employees.filter(e => e['在籍状況'] === '在籍中' && e['名前'] !== '貸出用' && e['名前'] !== '派遣');
@@ -451,7 +479,7 @@ function renderPeople(){
     const isOpen = openCards.has(name);
     return `<div class="emp-card ${isOpen ? 'open' : ''}" id="card-${esc(name)}">
       <div class="emp-head" onclick="toggleCard('${esc(name)}')">
-        <span class="emp-name">${esc(name)}</span>
+        <span class="emp-name">${esc(name)}</span>${empKindTag(e)}
         <span class="emp-status-tag ${stCls}">${esc(e['在籍状況'])}</span>
         <div class="emp-marks">${marks.join('')}</div>
         <span class="emp-toggle">▶</span>
