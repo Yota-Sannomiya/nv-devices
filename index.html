@@ -53,6 +53,7 @@ body{font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sa
 .k-staff{background:var(--bg);color:var(--text-sub);border-color:var(--border)}
 .k-haken{background:var(--blue-light);color:var(--blue-dark)}
 .k-part{background:var(--green-light);color:var(--green)}
+.k-stock{background:var(--bg);color:var(--text-muted);border:1px dashed var(--border)}
 .emp-marks{display:flex;gap:6px;flex:1;flex-wrap:wrap}
 .mark{font-size:11px;padding:3px 10px;border-radius:99px;font-weight:600;white-space:nowrap}
 .m-on{background:var(--blue-light);color:var(--blue-dark)}
@@ -394,11 +395,14 @@ const EMP_KIND = {
   '藤澤':'アルバイト',
   '今村':'取締役', '田開':'取締役', '髙山':'取締役', '三宮':'取締役'
 };
-const KIND_CLASS = {'取締役':'k-exec', '派遣社員':'k-haken', 'アルバイト':'k-part', '正社員':'k-staff'};
+const KIND_CLASS = {'取締役':'k-exec', '派遣社員':'k-haken', 'アルバイト':'k-part', '正社員':'k-staff', 'ストック':'k-stock'};
 
+function isStockRow(name){
+  return name === '貸出用' || name === '派遣';  // 社員ではなく機器のストック枠
+}
 function empKind(e){
   const name = e['名前'] || '';
-  if(name === '貸出用' || name === '派遣') return '';  // 機器のストック枠なので区分なし
+  if(isStockRow(name)) return 'ストック';
   if(e['雇用区分']) return e['雇用区分'];
   const sur = name.split(/[ 　]/)[0].replace(/高/g, '髙').replace(/沢/g, '澤');
   return EMP_KIND[sur] || '正社員';
@@ -448,6 +452,9 @@ function renderPeople(){
     return true;
   });
 
+  // ストック枠（貸出用・派遣）は社員ではないので一覧の末尾へ
+  filtered.sort((a, b) => (isStockRow(a['名前']) ? 1 : 0) - (isStockRow(b['名前']) ? 1 : 0));
+
   const list = document.getElementById('emp-list');
   if(!filtered.length){
     list.innerHTML = '<div class="empty">該当なし</div>';
@@ -480,7 +487,7 @@ function renderPeople(){
     return `<div class="emp-card ${isOpen ? 'open' : ''}" id="card-${esc(name)}">
       <div class="emp-head" onclick="toggleCard('${esc(name)}')">
         <span class="emp-name">${esc(name)}</span>${empKindTag(e)}
-        <span class="emp-status-tag ${stCls}">${esc(e['在籍状況'])}</span>
+        ${a.isSpecial ? '' : `<span class="emp-status-tag ${stCls}">${esc(e["在籍状況"])}</span>`}
         <div class="emp-marks">${marks.join('')}</div>
         <span class="emp-toggle">▶</span>
       </div>
