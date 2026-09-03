@@ -130,17 +130,6 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
 .ocr-hit-main{flex:1;min-width:180px;font-size:12px}
 .ocr-hit-main b{font-size:13px}
 .ocr-warn{font-size:11px;color:var(--amber);background:var(--amber-light);border-radius:99px;padding:1px 8px;font-weight:600}
-.model-group{background:var(--white);border:1px solid var(--border);border-radius:8px;margin-bottom:12px;overflow:hidden}
-.model-head{display:flex;align-items:center;gap:10px;padding:11px 16px;background:var(--bg);border-bottom:1px solid var(--border)}
-.model-name{font-size:13px;font-weight:600;flex:1}
-.model-count{font-size:12px;color:var(--text-sub)}
-.model-rows{padding:4px 0}
-.model-row{display:flex;align-items:baseline;gap:12px;padding:7px 16px;font-size:13px;border-bottom:1px solid #f0f2f4;flex-wrap:wrap}
-.model-row:last-child{border-bottom:none}
-.model-row:hover{background:#fafbfc}
-.mr-owner{font-weight:600;min-width:110px}
-.mr-owner .lnk{cursor:pointer;color:var(--blue)}
-.mr-owner .lnk:hover{text-decoration:underline}
 .asset-table{width:100%;border-collapse:collapse;font-size:13px}
 .asset-table th{text-align:left;padding:10px 14px;font-weight:600;font-size:12px;color:var(--text-sub);border-bottom:1px solid var(--border);background:var(--bg);white-space:nowrap}
 .asset-table td{padding:9px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
@@ -183,7 +172,7 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
   <div class="summary">
     <div class="scard"><div class="scard-label">在籍社員</div><div class="scard-num" id="cnt-emp">—</div></div>
     <div class="scard"><div class="scard-label">PC貸与</div><div class="scard-num" id="cnt-pc">—</div></div>
-    <div class="scard"><div class="scard-label">スマホ貸与</div><div class="scard-num" id="cnt-mobile">—</div></div>
+    <div class="scard"><div class="scard-label">携帯貸与</div><div class="scard-num" id="cnt-mobile">—</div></div>
     <div class="scard"><div class="scard-label">HF交換可能</div><div class="scard-num" id="cnt-hf-ok">—</div></div>
   </div>
   <div class="toolbar">
@@ -197,7 +186,7 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
     <select id="filter-missing" onchange="renderPeople()">
       <option value="">絞り込みなし</option>
       <option value="no-pc">PC未貸与</option>
-      <option value="no-mobile">スマホ未貸与</option>
+      <option value="no-mobile">携帯未貸与</option>
       <option value="hf-ok">HF交換可能</option>
     </select>
     <button class="btn btn-primary" onclick="openAddEmployee()">＋ 社員追加</button>
@@ -209,23 +198,19 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
 <div id="tab-assets" style="display:none">
   <div class="summary">
     <div class="scard"><div class="scard-label">PC</div><div class="scard-num" id="as-cnt-pc">—</div></div>
-    <div class="scard"><div class="scard-label">スマホ</div><div class="scard-num" id="as-cnt-mobile">—</div></div>
+    <div class="scard"><div class="scard-label">携帯</div><div class="scard-num" id="as-cnt-mobile">—</div></div>
     <div class="scard"><div class="scard-label">Wi-Fi</div><div class="scard-num" id="as-cnt-wifi">—</div></div>
     <div class="scard"><div class="scard-label">追加備品</div><div class="scard-num" id="as-cnt-extra">—</div></div>
   </div>
   <div class="toolbar">
-    <input type="text" id="as-search" placeholder="機種名・保有者・シリアルで検索..." oninput="renderAssets()">
+    <input type="text" id="as-search" placeholder="保有者・シリアル・電話番号で検索..." oninput="renderAssets()">
     <select id="as-type" onchange="renderAssets()">
       <option value="PC">パソコン</option>
-      <option value="携帯">スマホ</option>
+      <option value="携帯">携帯</option>
       <option value="Wi-Fi">Wi-Fi</option>
       <option value="Mac付属品">Mac付属品</option>
       <option value="追加備品">追加備品</option>
       <option value="ヘッドフォン">ヘッドフォン</option>
-    </select>
-    <select id="as-group" onchange="renderAssets()">
-      <option value="model">機種ごとにまとめる</option>
-      <option value="flat">まとめない（一覧）</option>
     </select>
     <select id="as-status" onchange="renderAssets()">
       <option value="使用中">使用中のみ</option>
@@ -485,7 +470,7 @@ function renderPeople(){
       if(a.wifis.length) marks.push(`<span class="mark m-wifi">Wi-Fi ×${a.wifis.length}</span>`);
     }else{
       marks.push(a.pcs.length ? `<span class="mark m-on">PC</span>` : `<span class="mark m-off">PC未</span>`);
-      marks.push(a.mob.length ? `<span class="mark m-mobile">スマホ</span>` : `<span class="mark m-off">スマホ未</span>`);
+      marks.push(a.mob.length ? `<span class="mark m-mobile">携帯</span>` : `<span class="mark m-off">携帯未</span>`);
       const hi = hfInfo(a.hf);
       if(hi){
         marks.push(`<span class="mark ${hi.status === 'eligible' ? 'm-hf-ok' : 'm-hf'}">${esc(hi.label)}</span>`);
@@ -526,7 +511,6 @@ function renderDetail(name){
     html += `<div class="detail-section"><div class="detail-label">パソコン</div>`;
     a.pcs.forEach(d => {
       html += `<div class="detail-row">
-        <span>${esc(d['商品名'])}</span>
         <span class="k">シリアル</span><span class="mono">${esc(d['シリアル'])}</span>
         <span class="k">契約</span><span class="mono">${esc(d['契約番号'])}</span>
         <span class="k">終了</span><span class="mono">${esc(d['契約終了']) || '—'}</span>
@@ -538,10 +522,9 @@ function renderDetail(name){
   }
 
   if(a.mob.length){
-    html += `<div class="detail-section"><div class="detail-label">スマホ</div>`;
+    html += `<div class="detail-section"><div class="detail-label">携帯</div>`;
     a.mob.forEach(d => {
       html += `<div class="detail-row">
-        <span>${esc(d['商品名'])}</span>
         <span class="k">電話番号</span><span class="mono" style="font-weight:600">${esc(d['電話番号'])}</span>
         <span class="k">製番</span><span class="mono">${esc(d['製番'])}</span>
         <span class="k">ICCID</span><span class="mono">${esc(d['ICCID'])}</span>
@@ -566,7 +549,6 @@ function renderDetail(name){
     html += `<div class="detail-section"><div class="detail-label">Wi-Fi</div>`;
     a.wifis.forEach(d => {
       html += `<div class="detail-row">
-        <span>${esc(d['商品名'])}</span>
         <span class="k">シリアル</span><span class="mono">${esc(d['シリアル'])}</span>
         <button class="edit-link" onclick="openEditDevice('通信機器','${esc(d['シリアル'])}','${esc(name)}')">編集</button>
       </div>`;
@@ -597,7 +579,7 @@ function renderDetail(name){
   </div></div>
 
   <div class="add-device-row">
-    <button class="btn btn-sm" onclick="openAddDevice('${esc(name)}')">＋ 機器を追加（PC / スマホ / Wi-Fi）</button>
+    <button class="btn btn-sm" onclick="openAddDevice('${esc(name)}')">＋ 機器を追加（PC / 携帯 / Wi-Fi）</button>
   </div>`;
 
   return html;
@@ -635,11 +617,11 @@ function assetRows(type, status){
   const rows = [];
   if(type === 'PC' || type === 'Wi-Fi' || type === 'Mac付属品'){
     devices.filter(d => d['種別'] === type).forEach(d => {
-      rows.push({model:d['商品名'], owner:d['保有者'], id:d['シリアル'], id2:d['契約番号'], end:d['契約終了'], note:d['備考'], status:d['ステータス']});
+      rows.push({model:d['種別'], owner:d['保有者'], id:d['シリアル'], id2:d['契約番号'], end:d['契約終了'], note:d['備考'], status:d['ステータス']});
     });
   }else if(type === '携帯'){
     mobiles.forEach(d => {
-      rows.push({model:d['商品名'], owner:d['保有者'], id:d['電話番号'], id2:d['製番'], end:'', note:'', status:d['ステータス']});
+      rows.push({model:'携帯', owner:d['保有者'], id:d['電話番号'], id2:d['製番'], end:'', note:'', status:d['ステータス']});
     });
   }else if(type === '追加備品'){
     extras.forEach(d => {
@@ -676,7 +658,6 @@ function renderAssets(){
   updateAssetSummary();
   const q = el.value.trim().toLowerCase();
   const type = document.getElementById('as-type').value;
-  const group = document.getElementById('as-group').value;
   const status = document.getElementById('as-status').value;
   const area = document.getElementById('assets-area');
 
@@ -697,42 +678,18 @@ function renderAssets(){
 
   const idLabel = type === '携帯' ? '電話番号' : type === 'ヘッドフォン' ? '初回貸与日' : 'シリアル';
 
-  if(group === 'model' && type !== 'ヘッドフォン' && type !== '追加備品'){
-    // 機種ごとにグルーピング
-    const groups = {};
-    rows.forEach(r => {
-      if(!groups[r.model]) groups[r.model] = [];
-      groups[r.model].push(r);
-    });
-    // 台数の多い順
-    const sorted = Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
-    area.innerHTML = sorted.map(([model, list]) => `
-      <div class="model-group">
-        <div class="model-head">
-          <span class="model-name">${esc(model)}</span>
-          <span class="model-count">${list.length}台</span>
-        </div>
-        <div class="model-rows">
-          ${list.map(r => `<div class="model-row">
-            <span class="mr-owner"><span class="lnk" onclick="jumpToPerson('${esc(r.owner)}')">${esc(r.owner)}</span></span>
-            <span class="mono">${esc(r.id)}</span>
-            ${r.end ? `<span class="sub">終了 ${esc(r.end)}</span>` : ''}
-            ${r.note ? `<span class="sub">${esc(r.note)}</span>` : ''}
-          </div>`).join('')}
-        </div>
-      </div>`).join('');
-  }else{
-    // フラット一覧
-    area.innerHTML = `<div class="card"><table class="asset-table">
-      <thead><tr><th>${type === '追加備品' ? '種別' : '機種'}</th><th>保有者</th><th>${idLabel}</th><th>備考</th></tr></thead>
-      <tbody>${rows.map(r => `<tr>
-        <td class="sub">${esc(r.model)}</td>
-        <td style="font-weight:600"><span class="lnk" style="cursor:pointer;color:var(--blue)" onclick="jumpToPerson('${esc(r.owner)}')">${esc(r.owner)}</span></td>
-        <td class="mono">${esc(type === 'ヘッドフォン' ? r.end : r.id) || '—'}</td>
-        <td class="sub">${esc(r.note)}</td>
-      </tr>`).join('')}</tbody>
-    </table></div>`;
-  }
+  // 種別で絞り込んだ一覧なので、種別の列は中身が行ごとに変わる追加備品のときだけ出す
+  const showKind = type === '追加備品';
+
+  area.innerHTML = `<div class="card"><table class="asset-table">
+    <thead><tr>${showKind ? '<th>種別</th>' : ''}<th>保有者</th><th>${idLabel}</th><th>備考</th></tr></thead>
+    <tbody>${rows.map(r => `<tr>
+      ${showKind ? `<td class="sub">${esc(r.model)}</td>` : ''}
+      <td style="font-weight:600"><span class="lnk" style="cursor:pointer;color:var(--blue)" onclick="jumpToPerson('${esc(r.owner)}')">${esc(r.owner)}</span></td>
+      <td class="mono">${esc(type === 'ヘッドフォン' ? r.end : r.id) || '—'}</td>
+      <td class="sub">${esc(r.note)}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>`;
 }
 
 // ---------- 発注メール ----------
@@ -854,9 +811,9 @@ function renderRetire(){
   const a = personAssets(name);
   const items = [];
 
-  a.pcs.forEach(d => items.push({sheet:'通信機器', key:d['シリアル'], type:d['種別'], label:d['商品名'], sub:'シリアル: ' + d['シリアル'], canSlide:true}));
-  a.wifis.forEach(d => items.push({sheet:'通信機器', key:d['シリアル'], type:'Wi-Fi', label:d['商品名'], sub:'シリアル: ' + d['シリアル'], canSlide:true}));
-  a.mob.forEach(d => items.push({sheet:'社用携帯', key:d['製番'], type:'携帯', label:d['商品名'], sub:'電話番号: ' + d['電話番号'], canSlide:true}));
+  a.pcs.forEach(d => items.push({sheet:'通信機器', key:d['シリアル'], type:d['種別'], label:d['種別'] === 'PC' ? 'パソコン' : d['種別'], sub:'シリアル: ' + d['シリアル'], canSlide:true}));
+  a.wifis.forEach(d => items.push({sheet:'通信機器', key:d['シリアル'], type:'Wi-Fi', label:'Wi-Fi', sub:'シリアル: ' + d['シリアル'], canSlide:true}));
+  a.mob.forEach(d => items.push({sheet:'社用携帯', key:d['製番'], type:'携帯', label:'携帯', sub:'電話番号: ' + d['電話番号'], canSlide:true}));
   if(a.hf) items.push({sheet:'ヘッドフォン', key:name, type:'ヘッドフォン', label:'ヘッドフォン', sub:'初回貸与: ' + (a.hf['初回貸与日'] || '不明'), canSlide:false});
   a.ext.forEach(d => items.push({sheet:'追加備品', key:String(d['_row']), type:d['種別'], label:d['種別'], sub:d['備考'] || '', canSlide:false, isExtra:true, rowId:d['_row']}));
 
@@ -1073,7 +1030,7 @@ async function runOcr(){
     status.textContent = ocrDevices.length + '件を読み取りました。内容を確認して選んでください。';
     result.innerHTML = ocrDevices.map((d, i) => `<div class="ocr-hit">
       <div class="ocr-hit-main">
-        <b>${esc(d.model) || '(機種名なし)'}</b> <span class="sub">${esc(d.kind)}</span><br>
+        <b>${esc(d.kind) || '機器'}</b><br>
         <span class="mono">${esc(d.serial) || 'シリアル未検出'}</span>
         ${d.contractNo ? `<span class="sub"> / 契約 ${esc(d.contractNo)}</span>` : ''}
         ${d.endDate ? `<span class="sub"> / 終了 ${esc(d.endDate)}</span>` : ''}
@@ -1112,11 +1069,10 @@ function applyOcr(i){
   const d = ocrDevices[i];
   if(!d) return;
   const kindSel = document.getElementById('m-kind');
-  const kind = ['PC', 'スマホ', 'Wi-Fi', 'Mac付属品'].includes(d.kind) ? d.kind : 'PC';
+  const kind = ['PC', '携帯', 'Wi-Fi', 'Mac付属品'].includes(d.kind) ? d.kind : 'PC';
   kindSel.value = kind;
   renderAddDeviceFields();
-  setVal('m-model', d.model);
-  if(kind === 'スマホ'){
+  if(kind === '携帯'){
     setVal('m-seiban', d.serial);
     setVal('m-tel', d.tel);
     setVal('m-iccid', d.iccid);
@@ -1143,7 +1099,7 @@ function toDateInput(s){
 function openAddDevice(owner){
   showModal('機器を追加 — ' + owner,
     ocrBoxHtml() +
-    fSelect('m-kind', '機器の種類', ['PC', 'スマホ', 'Wi-Fi', 'Mac付属品'], 'PC') +
+    fSelect('m-kind', '機器の種類', ['PC', '携帯', 'Wi-Fi', 'Mac付属品'], 'PC') +
     `<div id="m-device-fields"></div>`,
     `<button class="btn" onclick="closeModal()">キャンセル</button>
      <button class="btn btn-primary" onclick="submitAddDevice('${esc(owner)}')">登録</button>`
@@ -1154,16 +1110,14 @@ function openAddDevice(owner){
 function renderAddDeviceFields(){
   const kind = mv('m-kind');
   const area = document.getElementById('m-device-fields');
-  if(kind === 'スマホ'){
+  if(kind === '携帯'){
     area.innerHTML =
-      fInput('m-model', '商品名', 'Samsung Galaxy A25 5G') +
       fInput('m-seiban', '製番（必須）', '', '') +
       fInput('m-tel', '電話番号', '', '例：080-1234-5678') +
       fInput('m-iccid', 'ICCID', '') +
       fInput('m-moushikomi', '申込番号', '');
   }else{
     area.innerHTML =
-      fInput('m-model', '商品名', kind === 'Wi-Fi' ? 'Pocket WiFi SoftBank 602HW' : kind === 'PC' ? 'Latitude 5320' : '') +
       fInput('m-serial', 'シリアル（必須）', '') +
       fInput('m-keiyaku', '契約番号', '') +
       fInput('m-start', '契約開始', '', '', 'date') +
@@ -1174,17 +1128,17 @@ function renderAddDeviceFields(){
 async function submitAddDevice(owner){
   const kind = mv('m-kind');
   try{
-    if(kind === 'スマホ'){
+    if(kind === '携帯'){
       if(!mv('m-seiban')){ modalError('製番を入力してください'); return; }
       await apiPost({action:'addDevice', sheet:'社用携帯', row:{
-        '保有者':owner, '商品名':mv('m-model'), '製番':mv('m-seiban'),
+        '保有者':owner, '製番':mv('m-seiban'),
         '電話番号':mv('m-tel'), 'ICCID':mv('m-iccid'), '申込番号':mv('m-moushikomi'),
         'ステータス':'使用中'
       }});
     }else{
       if(!mv('m-serial')){ modalError('シリアルを入力してください'); return; }
       await apiPost({action:'addDevice', sheet:'通信機器', row:{
-        '保有者':owner, '種別':kind === 'スマホ' ? '携帯' : kind, '商品名':mv('m-model'),
+        '保有者':owner, '種別':kind,
         'シリアル':mv('m-serial'), '契約番号':mv('m-keiyaku'),
         '契約開始':mv('m-start').replace(/-/g, '/'), '契約終了':mv('m-end').replace(/-/g, '/'),
         '備考':mv('m-note'), 'ステータス':'使用中'
@@ -1207,7 +1161,6 @@ function openEditDevice(sheet, key, owner){
     showModal('機器を編集',
       fSelect('m-owner', '保有者', ownerOptions(), d['保有者']) +
       fSelect('m-kind', '種別', ['PC', 'Wi-Fi', 'Mac付属品'], d['種別']) +
-      fInput('m-model', '商品名', d['商品名']) +
       fInput('m-serial', 'シリアル', d['シリアル']) +
       fInput('m-keiyaku', '契約番号', d['契約番号']) +
       fInput('m-start', '契約開始（yyyy/mm/dd）', d['契約開始']) +
@@ -1221,15 +1174,14 @@ function openEditDevice(sheet, key, owner){
   }else if(sheet === '社用携帯'){
     const d = mobiles.find(x => x['製番'] === key);
     if(!d) return;
-    showModal('スマホを編集',
+    showModal('携帯を編集',
       fSelect('m-owner', '保有者', ownerOptions(), d['保有者']) +
-      fInput('m-model', '商品名', d['商品名']) +
       fInput('m-seiban', '製番', d['製番']) +
       fInput('m-tel', '電話番号', d['電話番号']) +
       fInput('m-iccid', 'ICCID', d['ICCID']) +
       fInput('m-moushikomi', '申込番号', d['申込番号']) +
       fSelect('m-status', 'ステータス', ['使用中', '返却済'], d['ステータス']),
-      `<button class="btn btn-danger left" onclick="submitDeleteDevice('社用携帯', '製番', '${esc(key)}', '${esc(owner)}')">このスマホを削除</button>
+      `<button class="btn btn-danger left" onclick="submitDeleteDevice('社用携帯', '製番', '${esc(key)}', '${esc(owner)}')">この携帯を削除</button>
        <button class="btn" onclick="closeModal()">キャンセル</button>
        <button class="btn btn-primary" onclick="submitEditDevice('社用携帯', '製番', '${esc(key)}', '${esc(owner)}')">保存</button>`
     );
@@ -1253,14 +1205,14 @@ async function submitEditDevice(sheet, keyCol, key, owner){
     let values;
     if(sheet === '通信機器'){
       values = {
-        '保有者':mv('m-owner'), '種別':mv('m-kind'), '商品名':mv('m-model'),
+        '保有者':mv('m-owner'), '種別':mv('m-kind'),
         'シリアル':mv('m-serial'), '契約番号':mv('m-keiyaku'),
         '契約開始':mv('m-start'), '契約終了':mv('m-end'),
         '備考':mv('m-note'), 'ステータス':mv('m-status')
       };
     }else{
       values = {
-        '保有者':mv('m-owner'), '商品名':mv('m-model'), '製番':mv('m-seiban'),
+        '保有者':mv('m-owner'), '製番':mv('m-seiban'),
         '電話番号':mv('m-tel'), 'ICCID':mv('m-iccid'), '申込番号':mv('m-moushikomi'),
         'ステータス':mv('m-status')
       };

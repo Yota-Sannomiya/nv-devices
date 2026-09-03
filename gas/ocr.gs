@@ -23,10 +23,10 @@ const OCR_PROMPT = [
   '- 文字が潰れていて判読できない箇所がある場合は、その機器の confidence を "low" にし、',
   '  note に「シリアル4文字目が不鮮明」のように具体的に書くこと。',
   '- 日付は必ず yyyy/mm/dd 形式に変換すること（令和などの和暦も西暦に直す）。',
-  '- kind は次のいずれかを選ぶ: PC / スマホ / Wi-Fi / Mac付属品',
-  '  ノートパソコン・デスクトップは PC、携帯電話・スマートフォンは スマホ、',
+  '- kind は次のいずれかを選ぶ: PC / 携帯 / Wi-Fi / Mac付属品',
+  '  ノートパソコン・デスクトップは PC、携帯電話・スマートフォンは 携帯、',
   '  モバイルルーターは Wi-Fi、電源アダプタや変換アダプタなどの付属品は Mac付属品。',
-  '- tel と iccid は スマホ の場合のみ記入する。'
+  '- tel と iccid は 携帯 の場合のみ記入する。'
 ].join('\n');
 
 const OCR_SCHEMA = {
@@ -37,18 +37,17 @@ const OCR_SCHEMA = {
       items: {
         type: 'OBJECT',
         properties: {
-          kind:       {type: 'STRING', description: 'PC / スマホ / Wi-Fi / Mac付属品'},
-          model:      {type: 'STRING', description: '商品名・機種名'},
-          serial:     {type: 'STRING', description: 'シリアル番号（スマホの場合は製番）'},
+          kind:       {type: 'STRING', description: 'PC / 携帯 / Wi-Fi / Mac付属品'},
+          serial:     {type: 'STRING', description: 'シリアル番号（携帯の場合は製番）'},
           contractNo: {type: 'STRING', description: '契約番号'},
           startDate:  {type: 'STRING', description: '契約開始日 yyyy/mm/dd'},
           endDate:    {type: 'STRING', description: '契約終了日 yyyy/mm/dd'},
-          tel:        {type: 'STRING', description: '電話番号（スマホのみ）'},
-          iccid:      {type: 'STRING', description: 'ICCID（スマホのみ）'},
+          tel:        {type: 'STRING', description: '電話番号（携帯のみ）'},
+          iccid:      {type: 'STRING', description: 'ICCID（携帯のみ）'},
           note:       {type: 'STRING', description: '備考・判読できなかった箇所'},
           confidence: {type: 'STRING', description: 'high / low'}
         },
-        required: ['kind', 'model', 'serial']
+        required: ['kind', 'serial']
       }
     }
   },
@@ -107,7 +106,6 @@ function ocrDocument_(body) {
 function normalizeOcrDevice_(d) {
   return {
     kind:       KIND_ALIAS_[String(d.kind || '').trim()] || String(d.kind || '').trim() || 'PC',
-    model:      String(d.model || '').trim(),
     serial:     String(d.serial || '').trim().toUpperCase().replace(/\s+/g, ''),
     contractNo: String(d.contractNo || '').trim(),
     startDate:  normalizeOcrDate_(d.startDate),
@@ -121,7 +119,7 @@ function normalizeOcrDevice_(d) {
 
 const KIND_ALIAS_ = {
   'パソコン': 'PC', 'ノートパソコン': 'PC', 'ノートPC': 'PC', 'PC': 'PC',
-  '携帯': 'スマホ', 'スマートフォン': 'スマホ', '携帯電話': 'スマホ', 'スマホ': 'スマホ',
+  '携帯': '携帯', 'スマートフォン': '携帯', '携帯電話': '携帯', 'スマホ': '携帯',
   'WiFi': 'Wi-Fi', 'Wi-Fi': 'Wi-Fi', 'モバイルルーター': 'Wi-Fi', 'ポケットWiFi': 'Wi-Fi',
   '付属品': 'Mac付属品', 'Mac付属品': 'Mac付属品'
 };
