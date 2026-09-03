@@ -27,38 +27,64 @@
 //   アクセスできるユーザー: 会社ドメイン内の全員
 // としておくと、URLを開いた時点でGoogleログインが必須になる。
 // そのうえで、下の許可シートに載っているアドレスだけを通す二段構えにする。
+//
+// 有効期限は設けない。退職者はWorkspaceアカウントが止まればその時点でログイン
+// できなくなるため、期限切れで都度申請させても管理の手間が増えるだけになる。
+// 代わりに最終アクセス日を記録して、使っていない人が一目で分かるようにしておく。
 
 const ACCESS_SHEET = '許可アドレス';
+const ACCESS_HEADERS = ['メールアドレス', '名前', '最終アクセス', '備考'];
 
 /** ログインしている人のアドレス。同じWorkspaceドメインなら取得できる */
 function currentUserEmail_() {
   return String(Session.getActiveUser().getEmail() || '').trim().toLowerCase();
 }
 
+/** 日付セルを yyyy/mm/dd の文字列にそろえる（文字列でも日付値でも受ける） */
+function asDateText_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, 'Asia/Tokyo', 'yyyy/MM/dd');
+  return String(v == null ? '' : v).trim();
+}
+
 /**
- * 許可シートのアドレス一覧。シートが無ければオーナーだけ入れて作る。
- * 管理者はこのシートに行を足すことで利用者を増やす。
+ * 許可シートを返す。無ければオーナー入りで作る。
+ * 列は名前で引くので、シート上で並べ替えても構わない。
  */
-function allowedEmails_() {
+function accessSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(ACCESS_SHEET);
   if (!sheet) {
     sheet = ss.insertSheet(ACCESS_SHEET);
-    sheet.getRange(1, 1, 1, 3).setValues([['メールアドレス', '名前', '備考']]).setFontWeight('bold');
+    sheet.getRange(1, 1, 1, ACCESS_HEADERS.length).setValues([ACCESS_HEADERS]).setFontWeight('bold');
     sheet.setFrozenRows(1);
-    sheet.getRange(2, 1, 1, 3).setValues([[Session.getEffectiveUser().getEmail(), '（管理者）', '自動で追加されました']]);
+    sheet.getRange(2, 1, 1, ACCESS_HEADERS.length).setNumberFormat('@')
+      .setValues([[Session.getEffectiveUser().getEmail(), '（管理者）', '', '自動で追加されました']]);
+    sheet.setColumnWidth(1, 240);
+    return sheet;
   }
-  const values = sheet.getDataRange().getValues();
-  const out = [];
-  for (let i = 1; i < values.length; i++) {
-    const v = String(values[i][0] || '').trim().toLowerCase();
-    if (v) out.push(v);
-  }
-  return out;
+  // 後から項目を足したとき用。足りない列だけ末尾に付ける
+  const headers = sheet.getRange(1, 1, 1, Math.max(1, sheet.getLastColumn())).getValues()[0].map(String);
+  ACCESS_HEADERS.forEach(function (name) {
+    if (headers.indexOf(name) >= 0) return;
+    sheet.getRange(1, headers.length + 1).setValue(name).setFontWeight('bold');
+    headers.push(name);
+  });
+  return sheet;
 }
 
 /**
- * 使ってよい人かどうかを判定する。
+ * 最終アクセス日を今日にする。
+ * checkAccess_ は操作のたびに呼ばれるので、同じ日には書き込まない。
+ */
+function touchLastSeen_(sheet, rowIndex, col, current) {
+  if (col < 0) return;
+  const today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+  if (asDateText_(current) === today) return;
+  sheet.getRange(rowIndex + 1, col + 1).setNumberFormat('@').setValue(today);
+}
+
+/**
+ * 使ってよい人かどうかを判定し、通ったら最終アクセス日を記録する。
  * オーナー（このスクリプトを実行しているアカウント）は常に許可する。
  * これがないと、許可シートを空にしたときに管理者まで締め出されてしまう。
  */
@@ -68,9 +94,23 @@ function checkAccess_() {
   if (!email) {
     return { ok: false, email: '', message: 'ログイン情報を取得できませんでした。会社のGoogleアカウントでログインし直してください。' };
   }
-  if (email === owner) return { ok: true, email: email };
-  if (allowedEmails_().indexOf(email) >= 0) return { ok: true, email: email };
-  return { ok: false, email: email, message: 'このアプリを使う権限がありません。管理者に利用申請してください。' };
+
+  const sheet = accessSheet_();
+  const values = sheet.getDataRange().getValues();
+  const headers = values[0].map(String);
+  const mailCol = Math.max(0, headers.indexOf('メールアドレス'));
+  const seenCol = headers.indexOf('最終アクセス');
+
+  let row = -1;
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][mailCol] || '').trim().toLowerCase() === email) { row = i; break; }
+  }
+
+  if (row < 0 && email !== owner) {
+    return { ok: false, email: email, message: 'このアプリを使う権限がありません。管理者に利用申請してください。' };
+  }
+  if (row >= 0) touchLastSeen_(sheet, row, seenCol, values[row][seenCol]);
+  return { ok: true, email: email };
 }
 
 // ============================================================
