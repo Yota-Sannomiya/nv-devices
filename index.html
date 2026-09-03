@@ -1005,13 +1005,14 @@ async function submitAddEmployee(){
 }
 
 // ---------- 社員情報の編集 ----------
-// 名前は機器の保有者・ヘッドフォンのキーになっているため、ここでは変更できない。
-// 改姓などで名前を直すときはスプレッドシート側でまとめて置き換える。
+// 名前は各シートから社員を引くためのキーなので、変更はGAS側の renameEmployee で
+// 関連シート（保有者・ヘッドフォン）ごと書き換える。
 function openEditEmployee(name){
   const e = employees.find(x => x['名前'] === name);
   if(!e) return;
   const hasKindCol = Object.prototype.hasOwnProperty.call(e, '雇用区分');
   showModal('社員情報を編集 — ' + name,
+    fInput('m-name', '名前（姓と名の間は半角スペース）', name) +
     fSelect('m-status', '在籍状況', ['在籍中', '退職予定', '退職済み'], e['在籍状況']) +
     (hasKindCol ? fSelect('m-kind', '雇用区分', ['正社員', '取締役', '派遣社員', 'アルバイト'], e['雇用区分']) : '') +
     fInput('m-note', '備考', e['備考']),
@@ -1020,16 +1021,25 @@ function openEditEmployee(name){
   );
 }
 async function submitEditEmployee(name){
+  const newName = mv('m-name');
+  if(!newName){ modalError('名前を入力してください'); return; }
   try{
+    if(newName !== name){
+      if(!confirm('「' + name + '」を「' + newName + '」に変更します。\n貸与中・返却済みの機器の保有者もまとめて書き換わります。よろしいですか？')) return;
+      await apiPost({action:'renameEmployee', oldName:name, newName:newName});
+    }
     const values = {'在籍状況':mv('m-status'), '備考':mv('m-note')};
     if(document.getElementById('m-kind')) values['雇用区分'] = mv('m-kind');
-    await apiPost({action:'updateRow', sheet:'社員', keyCol:'名前', key:name, values:values});
+    await apiPost({action:'updateRow', sheet:'社員', keyCol:'名前', key:newName, values:values});
     closeModal();
     await loadData();
-    openCards.add(name);
+    openCards.delete(name);
+    openCards.add(newName);
     renderPeople();
   }catch(err){
-    modalError('保存失敗: ' + err.message);
+    modalError(/unknown action: renameEmployee/.test(err.message)
+      ? '名前の変更にはGAS側の更新が必要です。gas/code.gs をスクリプトエディタに貼り直して再デプロイしてください。'
+      : '保存失敗: ' + err.message);
   }
 }
 
