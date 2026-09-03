@@ -544,16 +544,19 @@ function renderDetail(name){
 
   // カードでは機器を見分けられればよいので、PCはシリアル・携帯は電話番号だけ出す。
   // 見出しで何の機器かは分かるため、値そのものだけを置いて項目名は省く。
-  // 契約番号や製番は編集モーダルと機器一覧の検索から引ける。
+  // 契約番号や製番は入力しなくなったが、既存データは機器一覧の検索から引ける。
   section('パソコン', a.pcs.map(d => `<div class="detail-row">
     <span class="mono">${esc(d['シリアル'])}</span>
     ${d['備考'] ? `<span class="sub">${esc(d['備考'])}</span>` : ''}
     ${editBtn('通信機器', d['シリアル'])}
   </div>`));
 
+  // 電話番号が携帯を引くキーなので、空の行は編集させない（別の行を書き換えてしまう）
   section('携帯', a.mob.map(d => `<div class="detail-row">
-    <span class="mono tel">${esc(d['電話番号'])}</span>
-    ${editBtn('社用携帯', d['製番'])}
+    <span class="mono tel">${esc(d['電話番号']) || '電話番号なし'}</span>
+    ${d['電話番号']
+      ? editBtn('社用携帯', d['電話番号'])
+      : '<span class="sub">スプレッドシートで電話番号を入れると編集できます</span>'}
   </div>`));
 
   if(a.hf){
@@ -817,7 +820,7 @@ function renderRetire(){
 
   a.pcs.forEach(d => items.push({sheet:'通信機器', key:d['シリアル'], type:d['種別'], label:d['種別'] === 'PC' ? 'パソコン' : d['種別'], sub:'シリアル: ' + d['シリアル'], canSlide:true}));
   a.wifis.forEach(d => items.push({sheet:'通信機器', key:d['シリアル'], type:'Wi-Fi', label:'Wi-Fi', sub:'シリアル: ' + d['シリアル'], canSlide:true}));
-  a.mob.forEach(d => items.push({sheet:'社用携帯', key:d['製番'], type:'携帯', label:'携帯', sub:'電話番号: ' + d['電話番号'], canSlide:true}));
+  a.mob.forEach(d => items.push({sheet:'社用携帯', key:d['電話番号'], type:'携帯', label:'携帯', sub:'電話番号: ' + d['電話番号'], canSlide:true}));
   if(a.hf) items.push({sheet:'ヘッドフォン', key:name, type:'ヘッドフォン', label:'ヘッドフォン', sub:'初回貸与: ' + (a.hf['初回貸与日'] || '不明'), canSlide:false});
   a.ext.forEach(d => items.push({sheet:'追加備品', key:String(d['_row']), type:d['種別'], label:d['種別'], sub:d['備考'] || '', canSlide:false, isExtra:true, rowId:d['_row']}));
 
@@ -1042,7 +1045,7 @@ async function submitEditEmployee(name){
 function ocrBoxHtml(){
   if(!OCR_ENABLED) return '';
   return `<div class="ocr-box">
-    <div class="ocr-lead">貸与書類を撮影すると、シリアル・契約番号・契約日を自動で読み取ります（最大5枚）。</div>
+    <div class="ocr-lead">貸与書類を撮影すると、機器の種類とシリアル（携帯は電話番号）を自動で読み取ります（最大5枚）。</div>
     <button class="btn btn-sm" type="button" onclick="document.getElementById('ocr-file').click()">書類を撮影 / 画像を選ぶ</button>
     <span class="ocr-status" id="ocr-status"></span>
     <input type="file" id="ocr-file" accept="image/*" capture="environment" multiple style="display:none" onchange="runOcr()">
@@ -1079,9 +1082,7 @@ async function runOcr(){
     result.innerHTML = ocrDevices.map((d, i) => `<div class="ocr-hit">
       <div class="ocr-hit-main">
         <b>${esc(d.kind) || '機器'}</b><br>
-        <span class="mono">${esc(d.serial) || 'シリアル未検出'}</span>
-        ${d.contractNo ? `<span class="sub"> / 契約 ${esc(d.contractNo)}</span>` : ''}
-        ${d.endDate ? `<span class="sub"> / 終了 ${esc(d.endDate)}</span>` : ''}
+        <span class="mono">${esc(d.kind === '携帯' ? d.tel : d.serial) || '未検出'}</span>
         ${d.note ? `<br><span class="sub">${esc(d.note)}</span>` : ''}
       </div>
       ${d.confidence === 'low' ? '<span class="ocr-warn">要確認</span>' : ''}
@@ -1120,15 +1121,11 @@ function applyOcr(i){
   const kind = ['PC', '携帯', 'Wi-Fi', 'Mac付属品'].includes(d.kind) ? d.kind : 'PC';
   kindSel.value = kind;
   renderAddDeviceFields();
+  // 契約番号・契約日はフォームから外したので流し込まない（読み取り自体は残っている）
   if(kind === '携帯'){
-    setVal('m-seiban', d.serial);
     setVal('m-tel', d.tel);
-    setVal('m-iccid', d.iccid);
   }else{
     setVal('m-serial', d.serial);
-    setVal('m-keiyaku', d.contractNo);
-    setVal('m-start', toDateInput(d.startDate));
-    setVal('m-end', toDateInput(d.endDate));
     setVal('m-note', d.note);
   }
   document.getElementById('ocr-status').textContent = '入力しました。内容（特にシリアル）を確認してから登録してください。';
@@ -1137,10 +1134,6 @@ function applyOcr(i){
 function setVal(id, value){
   const el = document.getElementById(id);
   if(el && value) el.value = value;
-}
-function toDateInput(s){
-  const m = String(s || '').match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
-  return m ? m[1] + '-' + m[2] + '-' + m[3] : '';
 }
 
 // ---------- 機器の新規登録 ----------
@@ -1160,16 +1153,10 @@ function renderAddDeviceFields(){
   const area = document.getElementById('m-device-fields');
   if(kind === '携帯'){
     area.innerHTML =
-      fInput('m-seiban', '製番（必須）', '', '') +
-      fInput('m-tel', '電話番号', '', '例：080-1234-5678') +
-      fInput('m-iccid', 'ICCID', '') +
-      fInput('m-moushikomi', '申込番号', '');
+      fInput('m-tel', '電話番号（必須）', '', '例：080-1234-5678');
   }else{
     area.innerHTML =
       fInput('m-serial', 'シリアル（必須）', '') +
-      fInput('m-keiyaku', '契約番号', '') +
-      fInput('m-start', '契約開始', '', '', 'date') +
-      fInput('m-end', '契約終了', '', '', 'date') +
       fInput('m-note', '備考', '');
   }
 }
@@ -1177,19 +1164,21 @@ async function submitAddDevice(owner){
   const kind = mv('m-kind');
   try{
     if(kind === '携帯'){
-      if(!mv('m-seiban')){ modalError('製番を入力してください'); return; }
+      const tel = mv('m-tel');
+      if(!tel){ modalError('電話番号を入力してください'); return; }
+      // 電話番号が携帯を引くキーなので、使用中で重複すると編集時にどちらの行か
+      // 決まらなくなる。返却済みの番号を再利用するぶんには問題ない。
+      if(mobiles.some(m => m['電話番号'] === tel && m['ステータス'] !== '返却済')){
+        modalError('この電話番号の携帯はすでに使用中で登録されています'); return;
+      }
       await apiPost({action:'addDevice', sheet:'社用携帯', row:{
-        '保有者':owner, '製番':mv('m-seiban'),
-        '電話番号':mv('m-tel'), 'ICCID':mv('m-iccid'), '申込番号':mv('m-moushikomi'),
-        'ステータス':'使用中'
+        '保有者':owner, '電話番号':tel, 'ステータス':'使用中'
       }});
     }else{
       if(!mv('m-serial')){ modalError('シリアルを入力してください'); return; }
       await apiPost({action:'addDevice', sheet:'通信機器', row:{
         '保有者':owner, '種別':kind,
-        'シリアル':mv('m-serial'), '契約番号':mv('m-keiyaku'),
-        '契約開始':mv('m-start').replace(/-/g, '/'), '契約終了':mv('m-end').replace(/-/g, '/'),
-        '備考':mv('m-note'), 'ステータス':'使用中'
+        'シリアル':mv('m-serial'), '備考':mv('m-note'), 'ステータス':'使用中'
       }});
     }
     closeModal();
@@ -1210,9 +1199,6 @@ function openEditDevice(sheet, key, owner){
       fSelect('m-owner', '保有者', ownerOptions(), d['保有者']) +
       fSelect('m-kind', '種別', ['PC', 'Wi-Fi', 'Mac付属品'], d['種別']) +
       fInput('m-serial', 'シリアル', d['シリアル']) +
-      fInput('m-keiyaku', '契約番号', d['契約番号']) +
-      fInput('m-start', '契約開始（yyyy/mm/dd）', d['契約開始']) +
-      fInput('m-end', '契約終了（yyyy/mm/dd）', d['契約終了']) +
       fInput('m-note', '備考', d['備考']) +
       fSelect('m-status', 'ステータス', ['使用中', '返却済'], d['ステータス']),
       `<button class="btn btn-danger left" onclick="submitDeleteDevice('通信機器', 'シリアル', '${esc(key)}', '${esc(owner)}')">この機器を削除</button>
@@ -1220,18 +1206,15 @@ function openEditDevice(sheet, key, owner){
        <button class="btn btn-primary" onclick="submitEditDevice('通信機器', 'シリアル', '${esc(key)}', '${esc(owner)}')">保存</button>`
     );
   }else if(sheet === '社用携帯'){
-    const d = mobiles.find(x => x['製番'] === key);
+    const d = mobiles.find(x => x['電話番号'] === key);
     if(!d) return;
     showModal('携帯を編集',
       fSelect('m-owner', '保有者', ownerOptions(), d['保有者']) +
-      fInput('m-seiban', '製番', d['製番']) +
       fInput('m-tel', '電話番号', d['電話番号']) +
-      fInput('m-iccid', 'ICCID', d['ICCID']) +
-      fInput('m-moushikomi', '申込番号', d['申込番号']) +
       fSelect('m-status', 'ステータス', ['使用中', '返却済'], d['ステータス']),
-      `<button class="btn btn-danger left" onclick="submitDeleteDevice('社用携帯', '製番', '${esc(key)}', '${esc(owner)}')">この携帯を削除</button>
+      `<button class="btn btn-danger left" onclick="submitDeleteDevice('社用携帯', '電話番号', '${esc(key)}', '${esc(owner)}')">この携帯を削除</button>
        <button class="btn" onclick="closeModal()">キャンセル</button>
-       <button class="btn btn-primary" onclick="submitEditDevice('社用携帯', '製番', '${esc(key)}', '${esc(owner)}')">保存</button>`
+       <button class="btn btn-primary" onclick="submitEditDevice('社用携帯', '電話番号', '${esc(key)}', '${esc(owner)}')">保存</button>`
     );
   }else if(sheet === 'ヘッドフォン'){
     const d = headphones.find(x => x['名前'] === key);
@@ -1254,15 +1237,11 @@ async function submitEditDevice(sheet, keyCol, key, owner){
     if(sheet === '通信機器'){
       values = {
         '保有者':mv('m-owner'), '種別':mv('m-kind'),
-        'シリアル':mv('m-serial'), '契約番号':mv('m-keiyaku'),
-        '契約開始':mv('m-start'), '契約終了':mv('m-end'),
-        '備考':mv('m-note'), 'ステータス':mv('m-status')
+        'シリアル':mv('m-serial'), '備考':mv('m-note'), 'ステータス':mv('m-status')
       };
     }else{
       values = {
-        '保有者':mv('m-owner'), '製番':mv('m-seiban'),
-        '電話番号':mv('m-tel'), 'ICCID':mv('m-iccid'), '申込番号':mv('m-moushikomi'),
-        'ステータス':mv('m-status')
+        '保有者':mv('m-owner'), '電話番号':mv('m-tel'), 'ステータス':mv('m-status')
       };
     }
     await apiPost({action:'updateRow', sheet:sheet, keyCol:keyCol, key:key, values:values});

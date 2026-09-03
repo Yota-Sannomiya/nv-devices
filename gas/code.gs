@@ -146,6 +146,8 @@ function getConfig(ss) {
 
 /** 機器のステータス更新（返却チェック / ストック化） */
 function updateStatus(sheetName, key, status) {
+  // キーが空だと「キーが空の行」を先頭から拾って別の機器を書き換えてしまうので弾く
+  if (String(key === undefined || key === null ? '' : key).trim() === '') return { error: 'キーが空です（スプレッドシート側で値を入れてください）' };
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { error: 'sheet not found: ' + sheetName };
@@ -238,6 +240,8 @@ function renameEmployee(oldName, newName) {
 
 /** 機器のスライド（保有者変更＋履歴を備考に自動追記） */
 function transferDevice(sheetName, key, newOwner, oldOwner) {
+  // キーが空だと「キーが空の行」を先頭から拾って別の機器を書き換えてしまうので弾く
+  if (String(key === undefined || key === null ? '' : key).trim() === '') return { error: 'キーが空です（スプレッドシート側で値を入れてください）' };
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { error: 'sheet not found: ' + sheetName };
@@ -292,7 +296,8 @@ function removeExtraItem(rowId) {
 
 function keyColumnFor(sheetName, headers) {
   if (sheetName === '通信機器') return headers.indexOf('シリアル');
-  if (sheetName === '社用携帯') return headers.indexOf('製番');
+  // 携帯は電話番号で引く（製番は画面から入力しなくなったため空のことがある）
+  if (sheetName === '社用携帯') return headers.indexOf('電話番号');
   if (sheetName === 'ヘッドフォン') return headers.indexOf('名前');
   return -1;
 }
@@ -351,6 +356,8 @@ function addDevice(sheetName, rowObj) {
 
 /** 行の更新（キー列で行を特定し、指定された列だけ書き換え） */
 function updateRow(sheetName, keyColName, key, valuesObj) {
+  // キーが空だと「キーが空の行」を先頭から拾って別の機器を書き換えてしまうので弾く
+  if (String(key === undefined || key === null ? '' : key).trim() === '') return { error: 'キーが空です（スプレッドシート側で値を入れてください）' };
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { error: 'sheet not found: ' + sheetName };
@@ -375,6 +382,8 @@ function updateRow(sheetName, keyColName, key, valuesObj) {
 
 /** 行の削除（キー列で特定） */
 function deleteRowByKey(sheetName, keyColName, key) {
+  // キーが空だと「キーが空の行」を先頭から拾って別の機器を書き換えてしまうので弾く
+  if (String(key === undefined || key === null ? '' : key).trim() === '') return { error: 'キーが空です（スプレッドシート側で値を入れてください）' };
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { error: 'sheet not found: ' + sheetName };
