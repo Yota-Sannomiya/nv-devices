@@ -574,7 +574,7 @@ function renderDetail(name){
   // 追加備品は0点でも追加フォームを出すので、他とちがって常に表示する
   const extraRows = a.ext.length ? a.ext.map(d => `<div class="detail-row">
     <span class="badge b-mac">${esc(d['種別'])}</span>
-    <span class="sub">${esc(d['貸与日'])}${d['備考'] ? ' / ' + esc(d['備考']) : ''}</span>
+    ${d['備考'] ? `<span class="sub">${esc(d['備考'])}</span>` : ''}
     <button class="extra-del" onclick="delExtra(${d['_row']}, '${esc(name)}')">削除</button>
   </div>`) : ['<div class="detail-row sub">なし</div>'];
   extraRows.push(`<div class="extra-add">

@@ -273,8 +273,9 @@ function addExtraItem(owner, itemType, note) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('追加備品');
   if (!sheet) return { error: 'sheet not found: 追加備品' };
-  const today = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
-  sheet.appendRow([owner, itemType, today, note || '', '使用中']);
+  // 貸与日は自動で入れない。登録＝貸与日とはかぎらず（過去に貸したものを後から
+  // 登録することもある）、実際とちがう日付が入るくらいなら空欄のままにしておく。
+  sheet.appendRow([owner, itemType, '', note || '', '使用中']);
   return { ok: true };
 }
 
