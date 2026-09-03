@@ -232,9 +232,6 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
     <div class="form-grid">
       <div class="form-group"><label>入社日</label><input type="date" id="join-date"></div>
       <div class="form-group"><label>人数</label><input type="number" id="join-count" min="1" value="1"></div>
-      <div class="form-group"><label>Officeライセンス</label>
-        <select id="office"><option value="no">なし</option><option value="yes">あり</option></select>
-      </div>
     </div>
     <div class="btn-row"><button class="btn btn-primary" onclick="genOrderMail()">メール生成</button></div>
   </div>
@@ -728,9 +725,7 @@ function mailHeader(){
 function genOrderMail(){
   const date = document.getElementById('join-date').value;
   const count = document.getElementById('join-count').value || '1';
-  const office = document.getElementById('office').value;
   const dateStr = date ? date.replace(/-/g, '/') : '____/__/__';
-  const officeLine = office === 'no' ? '\n※Officeライセンスは不要です' : '';
   document.getElementById('mail-output').textContent =
 `${mailHeader()}
 
@@ -741,8 +736,8 @@ function genOrderMail(){
 ■ 入社
 ${dateStr}入社：${count}名
 
-※PCは現状お借りしているものと同スペックにてご手配をお願いできればと思います${officeLine}
-※オフィスなし
+※PCは現状お借りしているものと同スペックにてご手配をお願いできればと思います
+※Officeライセンスは不要です
 
 お忙しいところ恐縮ですが、上記についてご確認いただけますと幸いです。
 何卒よろしくお願いいたします。
