@@ -63,6 +63,9 @@ function doPost(e) {
       case 'addDevice':
         result = addDevice(body.sheet, body.row);
         break;
+      case 'renameEmployee':
+        result = renameEmployee(body.oldName, body.newName);
+        break;
       case 'updateRow':
         result = updateRow(body.sheet, body.keyCol, body.key, body.values);
         break;
@@ -178,6 +181,59 @@ function updateEmployeeStatus(name, status) {
     }
   }
   return { error: 'employee not found: ' + name };
+}
+
+/**
+ * 社員名の変更。
+ * 名前は各シートから社員を引くためのキーになっているので、社員シートだけでなく
+ * 名前で紐づいている列（保有者・ヘッドフォンの名前）もまとめて書き換える。
+ */
+function renameEmployee(oldName, newName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  oldName = String(oldName == null ? '' : oldName).trim();
+  newName = String(newName == null ? '' : newName).trim();
+  if (!oldName || !newName) return { error: '名前が空です' };
+  if (oldName === newName) return { ok: true, updated: 0 };
+
+  const empSheet = ss.getSheetByName('社員');
+  if (!empSheet) return { error: 'sheet not found: 社員' };
+  const empValues = empSheet.getDataRange().getValues();
+  const nameCol = empValues[0].map(String).indexOf('名前');
+  if (nameCol < 0) return { error: '社員シートに「名前」列がありません' };
+
+  let targetRow = -1;
+  for (let i = 1; i < empValues.length; i++) {
+    const v = String(empValues[i][nameCol]);
+    if (v === newName) return { error: '同じ名前の社員がすでに登録されています: ' + newName };
+    if (v === oldName) targetRow = i;
+  }
+  if (targetRow < 0) return { error: 'employee not found: ' + oldName };
+
+  empSheet.getRange(targetRow + 1, nameCol + 1).setNumberFormat('@').setValue(newName);
+
+  // 名前で社員に紐づいている列。返却済みの行も対象にして履歴の名前を揃える
+  const links = [
+    { sheet: '通信機器',   col: '保有者' },
+    { sheet: '社用携帯',   col: '保有者' },
+    { sheet: '追加備品',   col: '保有者' },
+    { sheet: 'ヘッドフォン', col: '名前' }
+  ];
+  let updated = 0;
+  links.forEach(function (link) {
+    const sheet = ss.getSheetByName(link.sheet);
+    if (!sheet) return;
+    const values = sheet.getDataRange().getValues();
+    if (values.length < 2) return;
+    const col = values[0].map(String).indexOf(link.col);
+    if (col < 0) return;
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][col]) === oldName) {
+        sheet.getRange(i + 1, col + 1).setNumberFormat('@').setValue(newName);
+        updated++;
+      }
+    }
+  });
+  return { ok: true, updated: updated };
 }
 
 /** 機器のスライド（保有者変更＋履歴を備考に自動追記） */
