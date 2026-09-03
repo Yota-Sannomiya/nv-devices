@@ -1135,6 +1135,25 @@ function modalError(msg){
 function fInput(id, label, value, placeholder, type){
   return `<div class="form-group"><label>${esc(label)}</label><input type="${type || 'text'}" id="${id}" value="${esc(value || '')}" placeholder="${esc(placeholder || '')}"></div>`;
 }
+// シートは yyyy/mm/dd で持っているが、<input type="date"> は yyyy-mm-dd しか受け付けない。
+// 読み込みと保存の両方でここを通して変換する。
+function toDateInput(s){
+  const m = String(s == null ? '' : s).trim().match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+  return m ? m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0') : '';
+}
+function fromDateInput(s){
+  const t = String(s == null ? '' : s).trim();
+  const m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? m[1] + '/' + m[2] + '/' + m[3] : t;  // 日付でないものはそのまま返す
+}
+// カレンダーから選べる日付欄。ただし既存の値が日付として読めないとき
+//（「未定」など手書きが入っている場合）は、カレンダーにすると保存で消えてしまうので
+// 文字のまま編集できるようにフォールバックする。
+function fDate(id, label, value){
+  const v = String(value == null ? '' : value).trim();
+  if(v && !toDateInput(v)) return fInput(id, label + '（日付として読めないため文字入力）', v);
+  return fInput(id, label, toDateInput(v), '', 'date');
+}
 function fSelect(id, label, options, selected){
   return `<div class="form-group"><label>${esc(label)}</label><select id="${id}">${options.map(o => `<option value="${esc(o)}" ${o === selected ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div>`;
 }
@@ -1395,10 +1414,10 @@ function openEditDevice(sheet, key, owner){
     const d = headphones.find(x => x['名前'] === key);
     if(!d) return;
     showModal('ヘッドフォンを編集 — ' + key,
-      fInput('m-first', '初回貸与日（yyyy/mm/dd）', d['初回貸与日']) +
-      fInput('m-ex1', '1回目交換', d['1回目交換']) +
-      fInput('m-ex2', '2回目交換', d['2回目交換']) +
-      fInput('m-ex3', '3回目交換', d['3回目交換']) +
+      fDate('m-first', '初回貸与日', d['初回貸与日']) +
+      fDate('m-ex1', '1回目交換', d['1回目交換']) +
+      fDate('m-ex2', '2回目交換', d['2回目交換']) +
+      fDate('m-ex3', '3回目交換', d['3回目交換']) +
       fInput('m-note', '備考', d['備考']) +
       fSelect('m-status', 'ステータス', ['使用中', '返却済'], d['ステータス']),
       `<button class="btn" onclick="closeModal()">キャンセル</button>
@@ -1432,8 +1451,11 @@ async function submitEditDevice(sheet, keyCol, key, owner){
 async function submitEditHf(key, owner){
   try{
     await apiPost({action:'updateRow', sheet:'ヘッドフォン', keyCol:'名前', key:key, values:{
-      '初回貸与日':mv('m-first'), '1回目交換':mv('m-ex1'), '2回目交換':mv('m-ex2'),
-      '3回目交換':mv('m-ex3'), '備考':mv('m-note'), 'ステータス':mv('m-status')
+      '初回貸与日':fromDateInput(mv('m-first')),
+      '1回目交換':fromDateInput(mv('m-ex1')),
+      '2回目交換':fromDateInput(mv('m-ex2')),
+      '3回目交換':fromDateInput(mv('m-ex3')),
+      '備考':mv('m-note'), 'ステータス':mv('m-status')
     }});
     closeModal();
     await loadData();
