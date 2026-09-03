@@ -511,7 +511,19 @@ function toggleCard(name){
 
 function renderDetail(name){
   const a = personAssets(name);
+  const emp = employees.find(e => e['名前'] === name);
   let html = '';
+
+  // ストック枠（貸出用・派遣）は社員ではないので在籍状況を持たない
+  if(emp && !a.isSpecial){
+    html += `<div class="detail-section"><div class="detail-label">社員情報</div>
+      <div class="detail-row">
+        <span class="k">在籍状況</span><span>${esc(emp['在籍状況'])}</span>
+        <span class="k">雇用区分</span><span>${esc(empKind(emp))}</span>
+        ${emp['備考'] ? `<span class="k">備考</span><span>${esc(emp['備考'])}</span>` : ''}
+        <button class="edit-link" onclick="openEditEmployee('${esc(name)}')">編集</button>
+      </div></div>`;
+  }
 
   if(a.pcs.length){
     html += `<div class="detail-section"><div class="detail-label">パソコン</div>`;
@@ -826,6 +838,11 @@ function renderRetire(){
       <button class="btn btn-warn" onclick="setEmpStatus('${esc(name)}', '退職予定')">退職予定にする</button>
       <span class="ri-sub">まず退職予定に変更してから機器を処理してください</span>
     </div>`;
+  }else{
+    html += `<div class="btn-row" style="margin:0 0 16px">
+      <button class="btn" onclick="setEmpStatus('${esc(name)}', '在籍中')">在籍中に戻す</button>
+      <span class="ri-sub">${emp['在籍状況'] === '退職済み' ? '返却済みにした機器は戻らないので、必要なら貸与を登録し直してください' : '間違えて退職予定にした場合はここで戻せます'}</span>
+    </div>`;
   }
 
   if(!items.length){
@@ -984,6 +1001,35 @@ async function submitAddEmployee(){
     renderPeople();
   }catch(err){
     modalError('追加失敗: ' + err.message);
+  }
+}
+
+// ---------- 社員情報の編集 ----------
+// 名前は機器の保有者・ヘッドフォンのキーになっているため、ここでは変更できない。
+// 改姓などで名前を直すときはスプレッドシート側でまとめて置き換える。
+function openEditEmployee(name){
+  const e = employees.find(x => x['名前'] === name);
+  if(!e) return;
+  const hasKindCol = Object.prototype.hasOwnProperty.call(e, '雇用区分');
+  showModal('社員情報を編集 — ' + name,
+    fSelect('m-status', '在籍状況', ['在籍中', '退職予定', '退職済み'], e['在籍状況']) +
+    (hasKindCol ? fSelect('m-kind', '雇用区分', ['正社員', '取締役', '派遣社員', 'アルバイト'], e['雇用区分']) : '') +
+    fInput('m-note', '備考', e['備考']),
+    `<button class="btn" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="submitEditEmployee('${esc(name)}')">保存</button>`
+  );
+}
+async function submitEditEmployee(name){
+  try{
+    const values = {'在籍状況':mv('m-status'), '備考':mv('m-note')};
+    if(document.getElementById('m-kind')) values['雇用区分'] = mv('m-kind');
+    await apiPost({action:'updateRow', sheet:'社員', keyCol:'名前', key:name, values:values});
+    closeModal();
+    await loadData();
+    openCards.add(name);
+    renderPeople();
+  }catch(err){
+    modalError('保存失敗: ' + err.message);
   }
 }
 
