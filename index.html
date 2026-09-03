@@ -198,6 +198,7 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
       <option value="no-mobile">携帯未貸与</option>
       <option value="hf-ok">HF交換可能</option>
     </select>
+    <button class="btn" onclick="exportPeopleCsv()">CSV出力</button>
     <button class="btn btn-primary" onclick="openAddEmployee()">＋ 社員追加</button>
   </div>
   <div class="emp-list" id="emp-list"></div>
@@ -227,6 +228,7 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
       <option value="">すべて</option>
       <option value="返却済">返却済のみ</option>
     </select>
+    <button class="btn" onclick="exportAssetsCsv()">CSV出力</button>
   </div>
   <div id="assets-area"></div>
 </div>
@@ -444,7 +446,8 @@ function personMatches(name, q){
 }
 
 // ---------- 社員一覧 ----------
-function renderPeople(){
+// 画面に出ている社員。CSV書き出しでも同じ絞り込みを使うので関数に分けてある
+function filteredEmployees(){
   const q = document.getElementById('search').value.trim();
   const statusFilter = document.getElementById('filter-emp-status').value;
   const missing = document.getElementById('filter-missing').value;
@@ -467,7 +470,11 @@ function renderPeople(){
 
   // ストック枠（貸出用・派遣）は社員ではないので一覧の末尾へ
   filtered.sort((a, b) => (isStockRow(a['名前']) ? 1 : 0) - (isStockRow(b['名前']) ? 1 : 0));
+  return filtered;
+}
 
+function renderPeople(){
+  const filtered = filteredEmployees();
   const list = document.getElementById('emp-list');
   if(!filtered.length){
     list.innerHTML = '<div class="empty">該当なし</div>';
@@ -660,6 +667,65 @@ function updateAssetSummary(){
   document.getElementById('as-cnt-extra').innerHTML = assetRows('追加備品', st).length + '<small>点</small>';
 }
 
+// ---------- CSV書き出し ----------
+// Excelで開くことが前提なので、UTF-8のBOMを付けて改行はCRLFにする。
+// 出力対象は画面に出ている行そのもの（検索・絞り込みがそのまま効く）。
+function csvCell(v){
+  const s = String(v == null ? '' : v);
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadCsv(filename, rows){
+  const body = rows.map(r => r.map(csvCell).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob(['\uFEFF' + body], {type:'text/csv;charset=utf-8'}));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function stamp(){
+  const d = new Date();
+  return d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+}
+
+// 社員ごとに1行。1人が複数台持っていることがあるので同じ列に「 / 」で並べる
+function exportPeopleCsv(){
+  const rows = [['名前', '在籍状況', '雇用区分', 'パソコン（シリアル）', '携帯（電話番号）', 'Wi-Fi（シリアル）', 'ヘッドフォン初回貸与日', '追加備品', '備考']];
+  filteredEmployees().forEach(e => {
+    const name = e['名前'];
+    const a = personAssets(name);
+    rows.push([
+      name,
+      a.isSpecial ? '' : e['在籍状況'],
+      empKind(e),
+      a.pcs.map(d => d['シリアル']).join(' / '),
+      a.mob.map(d => d['電話番号']).join(' / '),
+      a.wifis.map(d => d['シリアル']).join(' / '),
+      a.hf ? a.hf['初回貸与日'] : '',
+      a.ext.map(d => d['種別'] + (d['備考'] ? '（' + d['備考'] + '）' : '')).join(' / '),
+      e['備考'] || ''
+    ]);
+  });
+  downloadCsv('社員貸与一覧_' + stamp() + '.csv', rows);
+}
+
+// 機器ごとに1行
+function exportAssetsCsv(){
+  const rows = [['種別', 'シリアル・電話番号', '保有者', 'ステータス', '備考']];
+  filteredAssetRows().forEach(r => {
+    rows.push([
+      r.model,
+      r.model === 'ヘッドフォン' ? r.end : r.id,
+      r.owner,
+      r.status,
+      r.note
+    ]);
+  });
+  downloadCsv('機器一覧_' + stamp() + '.csv', rows);
+}
+
 function jumpToPerson(name){
   showTab('people');
   document.getElementById('search').value = name;
@@ -668,21 +734,27 @@ function jumpToPerson(name){
   renderPeople();
 }
 
-function renderAssets(){
-  const el = document.getElementById('as-search');
-  if(!el) return;
-  updateAssetSummary();
-  const q = searchKey(el.value.trim());
+// 画面に出ている機器。CSV書き出しでも同じ絞り込みを使う
+function filteredAssetRows(){
+  const q = searchKey(document.getElementById('as-search').value.trim());
   const type = document.getElementById('as-type').value;
   const status = document.getElementById('as-status').value;
-  const area = document.getElementById('assets-area');
-
   let rows = assetRows(type, status);
   if(q){
     rows = rows.filter(r =>
       [r.model, r.owner, r.id, r.id2].some(v => v && searchKey(v).includes(q))
     );
   }
+  return rows;
+}
+
+function renderAssets(){
+  const el = document.getElementById('as-search');
+  if(!el) return;
+  updateAssetSummary();
+  const type = document.getElementById('as-type').value;
+  const area = document.getElementById('assets-area');
+  const rows = filteredAssetRows();
 
   if(!rows.length){
     area.innerHTML = '<div class="empty">該当なし</div>';
