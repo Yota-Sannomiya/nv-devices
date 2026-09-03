@@ -140,11 +140,17 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
 .ocr-hit-main{flex:1;min-width:180px;font-size:12px}
 .ocr-hit-main b{font-size:13px}
 .ocr-warn{font-size:11px;color:var(--amber);background:var(--amber-light);border-radius:99px;padding:1px 8px;font-weight:600}
-.asset-table{width:100%;border-collapse:collapse;font-size:13px}
-.asset-table th{text-align:left;padding:10px 14px;font-weight:600;font-size:12px;color:var(--text-sub);border-bottom:1px solid var(--border);background:var(--bg);white-space:nowrap}
-.asset-table td{padding:9px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
-.asset-table tbody tr:last-child td{border-bottom:none}
-.asset-table tbody tr:hover{background:#fafbfc}
+/* 1台=1カード。表だと保有者もシリアルも短くて右半分が空くので、横に並べて幅を使い切る */
+.asset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.as-card{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:11px 14px}
+.as-card:hover{border-color:#b9c2cc}
+.as-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+.as-owner{font-size:13px;font-weight:600;color:var(--blue);cursor:pointer}
+.as-owner:hover{text-decoration:underline}
+.as-name{font-size:12px;color:var(--text-sub)}
+.as-id{font-family:"SF Mono",Consolas,Menlo,monospace;font-size:12px;color:var(--text);margin-top:1px}
+.as-note{font-size:11px;color:var(--text-sub);margin-top:7px;padding-top:7px;border-top:1px solid var(--border)}
+.as-count{font-size:11px;color:var(--text-sub);margin:0 2px 8px}
 .card{background:var(--white);border:1px solid var(--border);border-radius:8px;overflow:hidden}
 .mono{font-family:"SF Mono",Consolas,Menlo,monospace;font-size:12px;color:var(--text-sub)}
 .sub{font-size:12px;color:var(--text-sub)}
@@ -212,6 +218,7 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
     <div class="scard"><div class="scard-label">携帯</div><div class="scard-num" id="as-cnt-mobile">—</div></div>
     <div class="scard"><div class="scard-label">Wi-Fi</div><div class="scard-num" id="as-cnt-wifi">—</div></div>
     <div class="scard"><div class="scard-label">追加備品</div><div class="scard-num" id="as-cnt-extra">—</div></div>
+    <div class="scard"><div class="scard-label">ヘッドフォン</div><div class="scard-num" id="as-cnt-hf">—</div></div>
   </div>
   <div class="toolbar">
     <input type="text" id="as-search" placeholder="保有者・シリアル・電話番号・契約番号で検索..." oninput="renderAssets()">
@@ -681,20 +688,20 @@ function assetRows(type, status){
   const rows = [];
   if(type === 'PC' || type === 'Wi-Fi' || type === 'Mac付属品'){
     devices.filter(d => d['種別'] === type).forEach(d => {
-      rows.push({model:d['種別'], owner:d['保有者'], id:d['シリアル'], id2:d['契約番号'], end:d['契約終了'], note:d['備考'], status:d['ステータス']});
+      rows.push({model:d['種別'], name:d['商品名'] || '', owner:d['保有者'], id:d['シリアル'], id2:d['契約番号'], end:d['契約終了'], note:d['備考'], status:d['ステータス']});
     });
   }else if(type === '携帯'){
     mobiles.forEach(d => {
-      rows.push({model:'携帯', owner:d['保有者'], id:d['電話番号'], id2:d['製番'], end:'', note:d['備考'] || '', status:d['ステータス']});
+      rows.push({model:'携帯', name:d['商品名'] || '', owner:d['保有者'], id:d['電話番号'], id2:d['製番'], end:'', note:d['備考'] || '', status:d['ステータス']});
     });
   }else if(type === '追加備品'){
     extras.forEach(d => {
-      rows.push({model:d['種別'], owner:d['保有者'], id:'', id2:'', end:'', note:(d['貸与日'] ? d['貸与日'] + (d['備考'] ? ' / ' + d['備考'] : '') : d['備考']), status:d['ステータス']});
+      rows.push({model:d['種別'], name:'', owner:d['保有者'], id:'', id2:'', end:'', note:(d['貸与日'] ? d['貸与日'] + (d['備考'] ? ' / ' + d['備考'] : '') : d['備考']), status:d['ステータス']});
     });
   }else if(type === 'ヘッドフォン'){
     headphones.forEach(d => {
       const hi = hfInfo(d['ステータス'] !== '返却済' ? d : null);
-      rows.push({model:'ヘッドフォン', owner:d['名前'], id:'', id2:'', end:d['初回貸与日'], note:(hi && hi.status === 'eligible' ? '交換可能' : hi && hi.date ? hi.date.getFullYear() + '/' + String(hi.date.getMonth()+1).padStart(2,'0') + '〜交換可' : ''), status:d['ステータス']});
+      rows.push({model:'ヘッドフォン', name:'', owner:d['名前'], id:'', id2:'', end:d['初回貸与日'], note:(hi && hi.status === 'eligible' ? '交換可能' : hi && hi.date ? hi.date.getFullYear() + '/' + String(hi.date.getMonth()+1).padStart(2,'0') + '〜交換可' : ''), status:d['ステータス']});
     });
   }
   return rows.filter(r => !status || r.status === status);
@@ -706,6 +713,7 @@ function updateAssetSummary(){
   document.getElementById('as-cnt-mobile').innerHTML = assetRows('携帯', st).length + '<small>台</small>';
   document.getElementById('as-cnt-wifi').innerHTML = assetRows('Wi-Fi', st).length + '<small>台</small>';
   document.getElementById('as-cnt-extra').innerHTML = assetRows('追加備品', st).length + '<small>点</small>';
+  document.getElementById('as-cnt-hf').innerHTML = assetRows('ヘッドフォン', st).length + '<small>台</small>';
 }
 
 // ---------- CSV書き出し ----------
@@ -767,6 +775,11 @@ function exportAssetsCsv(){
   downloadCsv('機器一覧_' + stamp() + '.csv', rows);
 }
 
+const TYPE_BADGE = {'PC':'b-pc', '携帯':'b-mobile', 'Wi-Fi':'b-wifi', 'Mac付属品':'b-mac', 'ヘッドフォン':'b-hf'};
+function typeBadge(model){
+  return '<span class="badge ' + (TYPE_BADGE[model] || 'b-mac') + '">' + esc(model) + '</span>';
+}
+
 function jumpToPerson(name){
   showTab('people');
   document.getElementById('search').value = name;
@@ -802,21 +815,28 @@ function renderAssets(){
     return;
   }
 
-  const idLabel = !type ? 'シリアル / 番号' : type === '携帯' ? '電話番号' : type === 'ヘッドフォン' ? '初回貸与日' : 'シリアル';
-
-  // 種別で絞り込んだ一覧では種別の列は同じ値の繰り返しになるので、
-  // 行ごとに中身が変わる「すべて」と追加備品のときだけ出す
+  // 全行で同じ値になるものは出さない。種別で絞り込んでいれば種別、
+  // ステータスで絞り込んでいればステータスがそれにあたる。
   const showKind = !type || type === '追加備品';
+  const showStatus = !document.getElementById('as-status').value;
 
-  area.innerHTML = `<div class="card"><table class="asset-table">
-    <thead><tr>${showKind ? '<th>種別</th>' : ''}<th>保有者</th><th>${idLabel}</th><th>備考</th></tr></thead>
-    <tbody>${rows.map(r => `<tr>
-      ${showKind ? `<td class="sub">${esc(r.model)}</td>` : ''}
-      <td style="font-weight:600"><span class="lnk" style="cursor:pointer;color:var(--blue)" onclick="jumpToPerson('${esc(r.owner)}')">${esc(r.owner)}</span></td>
-      <td class="mono">${esc(r.model === 'ヘッドフォン' ? r.end : r.id) || '—'}</td>
-      <td class="sub">${esc(r.note)}</td>
-    </tr>`).join('')}</tbody>
-  </table></div>`;
+  area.innerHTML = `<div class="as-count">${rows.length}件</div>
+    <div class="asset-grid">${rows.map(r => `<div class="as-card">
+      <div class="as-head">
+        ${showKind ? typeBadge(r.model) : ''}
+        <span class="as-owner" onclick="jumpToPerson('${esc(r.owner)}')">${esc(r.owner)}</span>
+        ${showStatus ? `<span class="emp-status-tag ${r.status === '返却済' ? 'st-left' : 'st-active'}">${esc(r.status)}</span>` : ''}
+      </div>
+      ${r.name ? `<div class="as-name">${esc(r.name)}</div>` : ''}
+      ${assetIdText(r) ? `<div class="as-id">${esc(assetIdText(r))}</div>` : ''}
+      ${r.note ? `<div class="as-note">${esc(r.note)}</div>` : ''}
+    </div>`).join('')}</div>`;
+}
+
+// カードには列見出しがないので、日付だけだと何の日付か分からない分は言葉を足す
+function assetIdText(r){
+  if(r.model === 'ヘッドフォン') return r.end ? '初回貸与 ' + r.end : '';
+  return r.id || '';
 }
 
 // ---------- 発注メール ----------
