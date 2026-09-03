@@ -525,13 +525,13 @@ function renderDetail(name){
       </div></div>`;
   }
 
+  // カードでは機器を見分けられればよいので、PCはシリアル・携帯は電話番号だけ出す。
+  // 契約番号や製番は編集モーダルと機器一覧の検索から引ける。
   if(a.pcs.length){
     html += `<div class="detail-section"><div class="detail-label">パソコン</div>`;
     a.pcs.forEach(d => {
       html += `<div class="detail-row">
         <span class="k">シリアル</span><span class="mono">${esc(d['シリアル'])}</span>
-        <span class="k">契約</span><span class="mono">${esc(d['契約番号'])}</span>
-        <span class="k">終了</span><span class="mono">${esc(d['契約終了']) || '—'}</span>
         ${d['備考'] ? `<span class="k">${esc(d['備考'])}</span>` : ''}
         <button class="edit-link" onclick="openEditDevice('通信機器','${esc(d['シリアル'])}','${esc(name)}')">編集</button>
       </div>`;
@@ -544,8 +544,6 @@ function renderDetail(name){
     a.mob.forEach(d => {
       html += `<div class="detail-row">
         <span class="k">電話番号</span><span class="mono" style="font-weight:600">${esc(d['電話番号'])}</span>
-        <span class="k">製番</span><span class="mono">${esc(d['製番'])}</span>
-        <span class="k">ICCID</span><span class="mono">${esc(d['ICCID'])}</span>
         <button class="edit-link" onclick="openEditDevice('社用携帯','${esc(d['製番'])}','${esc(name)}')">編集</button>
       </div>`;
     });
