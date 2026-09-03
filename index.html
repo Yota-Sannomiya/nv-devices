@@ -237,7 +237,6 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
   </div>
   <div class="form-card" id="form-exchange" style="display:none">
     <div class="form-grid">
-      <div class="form-group"><label>機器名</label><input type="text" id="ex-device" placeholder="例：ProBook 635 Aero G8"></div>
       <div class="form-group"><label>シリアル番号</label><input type="text" id="ex-serial"></div>
       <div class="form-group"><label>不具合内容</label><input type="text" id="ex-issue" placeholder="例：キーボードのキーに不具合が生じているため"></div>
     </div>
@@ -752,7 +751,6 @@ ${mailFooter()}`;
 }
 
 function genExchangeMail(){
-  const device = document.getElementById('ex-device').value || '●●';
   const serial = document.getElementById('ex-serial').value || '●●';
   const issue = document.getElementById('ex-issue').value || '不具合が生じているため';
   document.getElementById('mail-output').textContent =
@@ -762,10 +760,10 @@ function genExchangeMail(){
 
 下記PCにつきまして、${issue}、交換をさせていただきたくご連絡いたします。
 
-・商品名：${device}
 ・シリアル番号：${serial}
 
 ※交換品は現状お借りしているものと同スペックにてご手配をお願いできればと思います
+※Officeライセンスは不要です
 
 お忙しいところ恐縮ですが、上記についてご確認いただけますと幸いです。
 何卒よろしくお願いいたします。
