@@ -721,6 +721,9 @@ function mailHeader(){
   return to + ' ' + person + '\n\nお世話になっております。\n' + (config['会社名'] || 'ナウビレッジ株式会社') + 'の' + name + 'です。';
 }
 
+// 発注時に基準にしている機種。標準機を入れ替えたらここを書き換える
+const ORDER_SPEC_MODEL = 'Latitude 5320';
+
 // 宛先はSSマーケット固定。携帯はKDDIへ直接発注するため、このメールはPCのみを扱う
 function genOrderMail(){
   const date = document.getElementById('order-date').value;
@@ -739,7 +742,7 @@ ${dateStr}
 ■ 台数
 ${count}台
 
-※現状お借りしているものと同スペックにてご手配をお願いできればと思います
+※現状お借りしているものと同スペック（${ORDER_SPEC_MODEL} 相当）にてご手配をお願いできればと思います
 ※Officeライセンスは不要です
 
 お忙しいところ恐縮ですが、上記についてご確認いただけますと幸いです。
