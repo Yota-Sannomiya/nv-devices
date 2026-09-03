@@ -249,7 +249,20 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
   <div class="form-card" id="form-exchange" style="display:none">
     <div class="form-grid">
       <div class="form-group"><label>シリアル番号</label><input type="text" id="ex-serial"></div>
-      <div class="form-group"><label>不具合内容</label><input type="text" id="ex-issue" placeholder="例：キーボードのキーに不具合が生じているため"></div>
+      <div class="form-group" style="grid-column:1/-1"><label>不具合内容</label>
+        <select id="ex-issue-preset" onchange="applyIssuePreset()">
+          <option value="">よくある不具合から選ぶ...</option>
+          <option>キーボードのキーに不具合が生じているため</option>
+          <option>ディスプレイに表示不良が生じているため</option>
+          <option>電源が入らなくなったため</option>
+          <option>バッテリーが充電できなくなったため</option>
+          <option>動作が著しく遅くなり業務に支障が出ているため</option>
+          <option>充電ポート・USBポートに不具合が生じているため</option>
+          <option>内蔵カメラ・マイクに不具合が生じているため</option>
+          <option>本体が破損しているため</option>
+        </select>
+        <input type="text" id="ex-issue" placeholder="選ぶか、自由に記入してください（例：キーボードのキーに不具合が生じているため）">
+      </div>
     </div>
     <div class="btn-row"><button class="btn btn-primary" onclick="genExchangeMail()">メール生成</button></div>
   </div>
@@ -826,6 +839,15 @@ ${count}台
 何卒よろしくお願いいたします。
 
 ${mailFooter()}`;
+}
+
+// 定型文を選ぶと下の自由記述欄に入る。そのまま使うのが基本だが、選んだあとに
+// 書き足したり直したりできるよう、メールに載るのは常に自由記述欄の中身。
+function applyIssuePreset(){
+  const sel = document.getElementById('ex-issue-preset');
+  if(!sel.value) return;
+  document.getElementById('ex-issue').value = sel.value;
+  sel.value = '';  // 同じ定型文をもう一度選び直せるように戻しておく
 }
 
 function genExchangeMail(){
