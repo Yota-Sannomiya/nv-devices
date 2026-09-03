@@ -89,8 +89,28 @@ function doPost(e) {
 // データ取得
 // ============================================================
 
+/**
+ * 画面で使う列がシートに無ければ末尾に足す。
+ * あとから項目を増やしたときに、スプレッドシートを手で直さなくても動くようにするため。
+ * 列がそろっていれば何も書き込まない。
+ */
+const REQUIRED_COLUMNS = { '社用携帯': ['備考'] };
+function ensureColumns(ss) {
+  Object.keys(REQUIRED_COLUMNS).forEach(function (sheetName) {
+    const sheet = ss.getSheetByName(sheetName);
+    if (!sheet || sheet.getLastColumn() < 1) return;
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(String);
+    REQUIRED_COLUMNS[sheetName].forEach(function (name) {
+      if (headers.indexOf(name) >= 0) return;
+      sheet.getRange(1, headers.length + 1).setValue(name).setFontWeight('bold');
+      headers.push(name);
+    });
+  });
+}
+
 function getData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureColumns(ss);
   return {
     employees: sheetToObjects(ss.getSheetByName('社員')),
     devices: sheetToObjects(ss.getSheetByName('通信機器')),

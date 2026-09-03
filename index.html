@@ -601,6 +601,7 @@ function renderDetail(name){
   // 電話番号が携帯を引くキーなので、空の行は編集させない（別の行を書き換えてしまう）
   section('携帯', a.mob.map(d => `<div class="detail-row">
     <span class="mono tel">${esc(d['電話番号']) || '電話番号なし'}</span>
+    ${d['備考'] ? `<span class="sub">${esc(d['備考'])}</span>` : ''}
     ${d['電話番号']
       ? editBtn('社用携帯', d['電話番号'])
       : '<span class="sub">スプレッドシートで電話番号を入れると編集できます</span>'}
@@ -684,7 +685,7 @@ function assetRows(type, status){
     });
   }else if(type === '携帯'){
     mobiles.forEach(d => {
-      rows.push({model:'携帯', owner:d['保有者'], id:d['電話番号'], id2:d['製番'], end:'', note:'', status:d['ステータス']});
+      rows.push({model:'携帯', owner:d['保有者'], id:d['電話番号'], id2:d['製番'], end:'', note:d['備考'] || '', status:d['ステータス']});
     });
   }else if(type === '追加備品'){
     extras.forEach(d => {
@@ -1300,7 +1301,8 @@ function renderAddDeviceFields(){
   const area = document.getElementById('m-device-fields');
   if(kind === '携帯'){
     area.innerHTML =
-      fInput('m-tel', '電話番号（必須）', '', '例：080-1234-5678');
+      fInput('m-tel', '電話番号（必須）', '', '例：080-1234-5678') +
+      fInput('m-note', '備考', '');
   }else{
     area.innerHTML =
       fInput('m-serial', 'シリアル（必須）', '') +
@@ -1319,7 +1321,7 @@ async function submitAddDevice(owner){
         modalError('この電話番号の携帯はすでに使用中で登録されています'); return;
       }
       await apiPost({action:'addDevice', sheet:'社用携帯', row:{
-        '保有者':owner, '電話番号':tel, 'ステータス':'使用中'
+        '保有者':owner, '電話番号':tel, '備考':mv('m-note'), 'ステータス':'使用中'
       }});
     }else{
       if(!mv('m-serial')){ modalError('シリアルを入力してください'); return; }
@@ -1358,6 +1360,7 @@ function openEditDevice(sheet, key, owner){
     showModal('携帯を編集',
       fSelect('m-owner', '保有者', ownerOptions(), d['保有者']) +
       fInput('m-tel', '電話番号', d['電話番号']) +
+      fInput('m-note', '備考', d['備考']) +
       fSelect('m-status', 'ステータス', ['使用中', '返却済'], d['ステータス']),
       `<button class="btn btn-danger left" onclick="submitDeleteDevice('社用携帯', '電話番号', '${esc(key)}', '${esc(owner)}')">この携帯を削除</button>
        <button class="btn" onclick="closeModal()">キャンセル</button>
@@ -1388,7 +1391,8 @@ async function submitEditDevice(sheet, keyCol, key, owner){
       };
     }else{
       values = {
-        '保有者':mv('m-owner'), '電話番号':mv('m-tel'), 'ステータス':mv('m-status')
+        '保有者':mv('m-owner'), '電話番号':mv('m-tel'),
+        '備考':mv('m-note'), 'ステータス':mv('m-status')
       };
     }
     await apiPost({action:'updateRow', sheet:sheet, keyCol:keyCol, key:key, values:values});
