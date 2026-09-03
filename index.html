@@ -248,7 +248,13 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
   </div>
   <div class="form-card" id="form-exchange" style="display:none">
     <div class="form-grid">
-      <div class="form-group"><label>シリアル番号</label><input type="text" id="ex-serial"></div>
+      <div class="form-group"><label>対象者</label>
+        <select id="ex-owner" onchange="applyExOwner()"><option value="">社員を選ぶ...</option></select>
+      </div>
+      <div class="form-group"><label>シリアル番号</label>
+        <input type="text" id="ex-serial">
+        <span class="ri-sub" id="ex-serial-note" style="color:var(--amber)"></span>
+      </div>
       <div class="form-group" style="grid-column:1/-1"><label>不具合内容</label>
         <select id="ex-issue-preset" onchange="applyIssuePreset()">
           <option value="">よくある不具合から選ぶ...</option>
@@ -341,6 +347,7 @@ async function loadData(){
     renderPeople();
     renderAssets();
     buildRetireSelect();
+    buildExOwnerSelect();
     renderRetire();
   }catch(err){
     document.getElementById('loading').style.display = 'none';
@@ -839,6 +846,32 @@ ${count}台
 何卒よろしくお願いいたします。
 
 ${mailFooter()}`;
+}
+
+function pcsOf(name){
+  return devices.filter(d => d['保有者'] === name && d['種別'] === 'PC' && d['ステータス'] !== '返却済');
+}
+
+// 交換対象がない人を並べても選べないので、PCを持っている人だけ出す
+function buildExOwnerSelect(){
+  const sel = document.getElementById('ex-owner');
+  const current = sel.value;
+  const owners = employees.map(e => e['名前']).filter(n => pcsOf(n).length);
+  sel.innerHTML = '<option value="">社員を選ぶ...</option>' +
+    owners.map(n => `<option value="${esc(n)}" ${n === current ? 'selected' : ''}>${esc(n)}</option>`).join('');
+}
+
+// 基本は1人1台なので選べばシリアルが入る。2台以上持っている人は1台目を入れた上で
+// 全部の番号を出して、合っているか確かめてもらう（欄はそのまま直せる）。
+function applyExOwner(){
+  const name = document.getElementById('ex-owner').value;
+  const note = document.getElementById('ex-serial-note');
+  if(!name){ note.textContent = ''; return; }
+  const pcs = pcsOf(name);
+  document.getElementById('ex-serial').value = pcs.length ? pcs[0]['シリアル'] : '';
+  note.textContent = pcs.length > 1
+    ? name + 'さんはPCが' + pcs.length + '台あります（' + pcs.map(d => d['シリアル']).join(' / ') + '）。番号が合っているか確認してください。'
+    : '';
 }
 
 // 定型文を選ぶと下の自由記述欄に入る。そのまま使うのが基本だが、選んだあとに
