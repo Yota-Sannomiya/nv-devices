@@ -317,8 +317,8 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
 // ============================================================
 // 設定
 // ============================================================
-// GASデプロイURL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycby3VPMBTQE5FAHbHLrcT2TyNdEmVP7aHdwX4WHOf7X3JluXK6qp-FD51F8mGdOOevwN/exec';
+// このページはGASのウェブアプリ（doGet）から配信される。通信は google.script.run を
+// 通すので、画面側にエンドポイントのURLは持たない。URL自体がGoogleログインで守られる。
 
 // 貸与書類の自動読み取り。gas/ocr.gs の設置とGEMINI_API_KEYの登録が済んだら true にする
 // （false の間は「書類を撮影」ボタンは表示されない）
@@ -339,9 +339,7 @@ async function loadData(){
   document.getElementById('content').style.display = 'none';
   document.getElementById('error').style.display = 'none';
   try{
-    const res = await fetch(GAS_URL + '?action=getData');
-    const data = await res.json();
-    if(data.error) throw new Error(data.error);
+    const data = await apiPost({action:'getData'});
     employees = data.employees || [];
     devices = data.devices || [];
     mobiles = data.mobiles || [];
@@ -361,7 +359,7 @@ async function loadData(){
     document.getElementById('loading').style.display = 'none';
     const box = document.getElementById('error');
     box.style.display = 'block';
-    box.textContent = 'データの取得に失敗しました。GAS_URLの設定とデプロイ状態を確認してください。（' + err.message + '）';
+    box.textContent = 'データの取得に失敗しました。（' + err.message + '）';
   }
 }
 
@@ -380,15 +378,22 @@ function addYears(d, n){
   r.setFullYear(r.getFullYear() + n);
   return r;
 }
-async function apiPost(body){
-  const res = await fetch(GAS_URL, {
-    method:'POST',
-    headers:{'Content-Type':'text/plain'},
-    body: JSON.stringify(body)
+// サーバー（GAS）への唯一の通信口。google.script.run はコールバック形式なので
+// Promise に包んで、呼び出し側はこれまでどおり await できるようにしてある。
+function apiPost(body){
+  return new Promise((resolve, reject) => {
+    if(typeof google === 'undefined' || !google.script || !google.script.run){
+      reject(new Error('このページは単体では動きません。社内で共有されているアプリのURLから開いてください。'));
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(res => {
+        if(res && res.error) reject(new Error(res.error));
+        else resolve(res);
+      })
+      .withFailureHandler(err => reject(new Error((err && err.message) || String(err))))
+      .api(body);
   });
-  const result = await res.json();
-  if(result.error) throw new Error(result.error);
-  return result;
 }
 
 function personAssets(name){

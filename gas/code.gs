@@ -10,80 +10,158 @@
  * - 種別マスタ: 追加備品の種別リスト（自由に追加可能）
  * - 設定: メール署名など
  *
- * セットアップ:
+ * セットアップ（詳しくは gas/README.md）:
  * 1. 新規スプレッドシート作成 → Apps Script にこのコードを貼り付け
- * 2. setupInitialData() を1回実行
- * 3. デプロイ > ウェブアプリ（実行: 自分 / アクセス: 全員）
- * 4. URLを index.html の GAS_URL に設定
+ * 2. HTMLファイル「index」を作り、リポジトリの index.html を貼り付け
+ * 3. setupInitialData() を1回実行
+ * 4. デプロイ > ウェブアプリ（実行: 自分 / アクセス: ドメイン内の全員）
+ * 5. 「許可アドレス」シートに使ってよい人のアドレスを追加
  */
+
+// ============================================================
+// アクセス制御
+// ============================================================
+//
+// このアプリはGASのウェブアプリとして配信する。デプロイの設定で
+//   実行するユーザー      : 自分（＝閲覧者にスプレッドシートの権限を渡さずに済む）
+//   アクセスできるユーザー: 会社ドメイン内の全員
+// としておくと、URLを開いた時点でGoogleログインが必須になる。
+// そのうえで、下の許可シートに載っているアドレスだけを通す二段構えにする。
+
+const ACCESS_SHEET = '許可アドレス';
+
+/** ログインしている人のアドレス。同じWorkspaceドメインなら取得できる */
+function currentUserEmail_() {
+  return String(Session.getActiveUser().getEmail() || '').trim().toLowerCase();
+}
+
+/**
+ * 許可シートのアドレス一覧。シートが無ければオーナーだけ入れて作る。
+ * 管理者はこのシートに行を足すことで利用者を増やす。
+ */
+function allowedEmails_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(ACCESS_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(ACCESS_SHEET);
+    sheet.getRange(1, 1, 1, 3).setValues([['メールアドレス', '名前', '備考']]).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    sheet.getRange(2, 1, 1, 3).setValues([[Session.getEffectiveUser().getEmail(), '（管理者）', '自動で追加されました']]);
+  }
+  const values = sheet.getDataRange().getValues();
+  const out = [];
+  for (let i = 1; i < values.length; i++) {
+    const v = String(values[i][0] || '').trim().toLowerCase();
+    if (v) out.push(v);
+  }
+  return out;
+}
+
+/**
+ * 使ってよい人かどうかを判定する。
+ * オーナー（このスクリプトを実行しているアカウント）は常に許可する。
+ * これがないと、許可シートを空にしたときに管理者まで締め出されてしまう。
+ */
+function checkAccess_() {
+  const email = currentUserEmail_();
+  const owner = String(Session.getEffectiveUser().getEmail() || '').trim().toLowerCase();
+  if (!email) {
+    return { ok: false, email: '', message: 'ログイン情報を取得できませんでした。会社のGoogleアカウントでログインし直してください。' };
+  }
+  if (email === owner) return { ok: true, email: email };
+  if (allowedEmails_().indexOf(email) >= 0) return { ok: true, email: email };
+  return { ok: false, email: email, message: 'このアプリを使う権限がありません。管理者に利用申請してください。' };
+}
 
 // ============================================================
 // Web API
 // ============================================================
 
-function doGet(e) {
-  const action = (e && e.parameter && e.parameter.action) || 'getData';
-  let result;
-  try {
-    if (action === 'getData') {
-      result = getData();
-    } else {
-      result = { error: 'unknown action: ' + action };
-    }
-  } catch (err) {
-    result = { error: String(err) };
-  }
-  return ContentService.createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON);
+function escapeHtml_(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function doPost(e) {
-  let result;
-  try {
-    const body = JSON.parse(e.postData.contents);
-    switch (body.action) {
-      case 'updateStatus':
-        result = updateStatus(body.sheet, body.key, body.status);
-        break;
-      case 'updateEmployeeStatus':
-        result = updateEmployeeStatus(body.name, body.status);
-        break;
-      case 'transferDevice':
-        result = transferDevice(body.sheet, body.key, body.newOwner, body.oldOwner);
-        break;
-      case 'addExtraItem':
-        result = addExtraItem(body.owner, body.itemType, body.note);
-        break;
-      case 'removeExtraItem':
-        result = removeExtraItem(body.rowId);
-        break;
-      case 'addEmployee':
-        result = addEmployee(body.name, body.note, body.hfDate);
-        break;
-      case 'addDevice':
-        result = addDevice(body.sheet, body.row);
-        break;
-      case 'renameEmployee':
-        result = renameEmployee(body.oldName, body.newName);
-        break;
-      case 'updateRow':
-        result = updateRow(body.sheet, body.keyCol, body.key, body.values);
-        break;
-      case 'deleteRow':
-        result = deleteRowByKey(body.sheet, body.keyCol, body.key);
-        break;
-      case 'ocrDocument':          // 貸与書類の読み取り（ocr.gs）
-        result = ocrDocument_(body);
-        break;
-      default:
-        result = { error: 'unknown action: ' + body.action };
-    }
-  } catch (err) {
-    result = { error: String(err) };
-  }
-  return ContentService.createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON);
+/** 権限が無いときなどに出す、素の1画面 */
+function simplePage_(title, lines) {
+  const body = lines.map(function (t) { return '<p>' + t + '</p>'; }).join('');
+  return HtmlService.createHtmlOutput(
+    '<div style="font-family:Helvetica Neue,Arial,Hiragino Kaku Gothic ProN,Meiryo,sans-serif;' +
+    'max-width:520px;margin:60px auto;padding:0 24px;color:#1f2328;line-height:1.8">' +
+    '<h1 style="font-size:16px;margin-bottom:12px">' + escapeHtml_(title) + '</h1>' +
+    '<div style="font-size:14px;color:#656d76">' + body + '</div></div>'
+  ).setTitle(title);
 }
+
+function doGet(e) {
+  const access = checkAccess_();
+  if (!access.ok) {
+    return simplePage_('アクセスできません', [
+      escapeHtml_(access.message),
+      access.email ? 'ログイン中のアドレス: <b>' + escapeHtml_(access.email) + '</b>' : ''
+    ].filter(String));
+  }
+  try {
+    return HtmlService.createHtmlOutputFromFile('index')
+      .setTitle('nv-devices | 貸与物管理')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+  } catch (err) {
+    return simplePage_('画面ファイルがありません', [
+      'スクリプトエディタに index.html が見つかりません。',
+      '「ファイルを追加 → HTML」で <b>index</b> という名前のファイルを作り、' +
+      'リポジトリの index.html の中身を貼り付けてください。',
+      escapeHtml_(String(err))
+    ]);
+  }
+}
+
+/**
+ * 画面からの唯一の入口（google.script.run から呼ばれる）。
+ * 匿名で叩けた doPost は廃止した。URL自体がGoogleログインで守られるうえ、
+ * ここでも許可アドレスを確認する。
+ */
+function api(body) {
+  const access = checkAccess_();
+  if (!access.ok) return { error: access.message };
+  try {
+    return handleAction_(body || {});
+  } catch (err) {
+    return { error: String(err) };
+  }
+}
+
+function handleAction_(body) {
+  switch (body.action) {
+    case 'getData':
+      return getData();
+    case 'updateStatus':
+      return updateStatus(body.sheet, body.key, body.status);
+    case 'updateEmployeeStatus':
+      return updateEmployeeStatus(body.name, body.status);
+    case 'transferDevice':
+      return transferDevice(body.sheet, body.key, body.newOwner, body.oldOwner);
+    case 'addExtraItem':
+      return addExtraItem(body.owner, body.itemType, body.note);
+    case 'removeExtraItem':
+      return removeExtraItem(body.rowId);
+    case 'addEmployee':
+      return addEmployee(body.name, body.note, body.hfDate);
+    case 'addDevice':
+      return addDevice(body.sheet, body.row);
+    case 'renameEmployee':
+      return renameEmployee(body.oldName, body.newName);
+    case 'updateRow':
+      return updateRow(body.sheet, body.keyCol, body.key, body.values);
+    case 'deleteRow':
+      return deleteRowByKey(body.sheet, body.keyCol, body.key);
+    case 'ocrDocument':          // 貸与書類の読み取り（ocr.gs）
+      return ocrDocument_(body);
+    default:
+      return { error: 'unknown action: ' + body.action };
+  }
+}
+
 
 // ============================================================
 // データ取得
