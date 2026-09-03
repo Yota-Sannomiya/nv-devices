@@ -232,13 +232,6 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
     <div class="form-grid">
       <div class="form-group"><label>入社日</label><input type="date" id="join-date"></div>
       <div class="form-group"><label>人数</label><input type="number" id="join-count" min="1" value="1"></div>
-      <div class="form-group"><label>機器</label>
-        <select id="device-type">
-          <option value="both">PC + 携帯</option>
-          <option value="pc">PCのみ</option>
-          <option value="mobile">携帯のみ</option>
-        </select>
-      </div>
       <div class="form-group"><label>Officeライセンス</label>
         <select id="office"><option value="no">なし</option><option value="yes">あり</option></select>
       </div>
@@ -731,25 +724,24 @@ function mailHeader(){
   return to + ' ' + person + '\n\nお世話になっております。\n' + (config['会社名'] || 'ナウビレッジ株式会社') + 'の' + name + 'です。';
 }
 
+// 宛先はSSマーケット固定。携帯はKDDIへ直接発注するため、このメールはPCのみを扱う
 function genOrderMail(){
   const date = document.getElementById('join-date').value;
   const count = document.getElementById('join-count').value || '1';
-  const device = document.getElementById('device-type').value;
   const office = document.getElementById('office').value;
   const dateStr = date ? date.replace(/-/g, '/') : '____/__/__';
-  const deviceLine = device === 'both' ? 'PC・携帯' : device === 'pc' ? 'PC' : '携帯';
   const officeLine = office === 'no' ? '\n※Officeライセンスは不要です' : '';
   document.getElementById('mail-output').textContent =
 `${mailHeader()}
 
-▼ ${deviceLine}の発注依頼
+▼ PCの発注依頼
 
 下記の通り、正社員${count}名の入社が決定いたしましたので、ご手配をお願いできますでしょうか。
 
 ■ 入社
 ${dateStr}入社：${count}名
 
-※${deviceLine}は現状お借りしているものと同スペックにてご手配をお願いできればと思います${officeLine}
+※PCは現状お借りしているものと同スペックにてご手配をお願いできればと思います${officeLine}
 ※オフィスなし
 
 お忙しいところ恐縮ですが、上記についてご確認いただけますと幸いです。
