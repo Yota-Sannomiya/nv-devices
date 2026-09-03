@@ -176,7 +176,7 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
     <div class="scard"><div class="scard-label">HF交換可能</div><div class="scard-num" id="cnt-hf-ok">—</div></div>
   </div>
   <div class="toolbar">
-    <input type="text" id="search" placeholder="社員名で検索..." oninput="renderPeople()">
+    <input type="text" id="search" placeholder="社員名・シリアル・電話番号で検索..." oninput="renderPeople()">
     <select id="filter-emp-status" onchange="renderPeople()">
       <option value="在籍中">在籍中のみ</option>
       <option value="退職予定">退職予定のみ</option>
@@ -203,9 +203,10 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
     <div class="scard"><div class="scard-label">追加備品</div><div class="scard-num" id="as-cnt-extra">—</div></div>
   </div>
   <div class="toolbar">
-    <input type="text" id="as-search" placeholder="保有者・シリアル・電話番号で検索..." oninput="renderAssets()">
+    <input type="text" id="as-search" placeholder="保有者・シリアル・電話番号・契約番号で検索..." oninput="renderAssets()">
     <select id="as-type" onchange="renderAssets()">
-      <option value="PC">パソコン</option>
+      <option value="">すべて</option>
+      <option value="PC" selected>パソコン</option>
       <option value="携帯">携帯</option>
       <option value="Wi-Fi">Wi-Fi</option>
       <option value="Mac付属品">Mac付属品</option>
@@ -428,6 +429,25 @@ function updateSummary(){
   document.getElementById('cnt-hf-ok').innerHTML = hfOkCount + '<small>名</small>';
 }
 
+// 電話番号は 080-1234-5678、シリアルは大文字などブレるので、
+// 記号と大文字小文字を落としてから突き合わせる
+function searchKey(v){
+  return String(v == null ? '' : v).toLowerCase().replace(/[-‐－ 　]/g, '');
+}
+
+// 名前だけでなく、貸与しているPCのシリアルや携帯の電話番号でも社員を引けるようにする。
+// 返却済みの機器は personAssets に含まれないので、そちらは機器一覧から探す。
+function personMatches(name, q){
+  const key = searchKey(q);
+  if(!key) return true;
+  if(searchKey(name).includes(key)) return true;
+  const a = personAssets(name);
+  const fields = [];
+  a.pcs.concat(a.wifis).forEach(d => fields.push(d['シリアル'], d['契約番号']));
+  a.mob.forEach(d => fields.push(d['電話番号'], d['製番'], d['ICCID']));
+  return fields.some(v => v && searchKey(v).includes(key));
+}
+
 // ---------- 社員一覧 ----------
 function renderPeople(){
   const q = document.getElementById('search').value.trim();
@@ -436,7 +456,7 @@ function renderPeople(){
 
   const filtered = employees.filter(e => {
     const name = e['名前'];
-    if(q && !name.includes(q)) return false;
+    if(q && !personMatches(name, q)) return false;
     if(statusFilter && e['在籍状況'] !== statusFilter) return false;
     if(missing){
       const a = personAssets(name);
@@ -613,7 +633,11 @@ async function delExtra(rowId, name){
 }
 
 // ---------- 機器一覧 ----------
+const ASSET_TYPES = ['PC', '携帯', 'Wi-Fi', 'Mac付属品', '追加備品', 'ヘッドフォン'];
+
 function assetRows(type, status){
+  // 種別が空＝「すべて」。番号で横断的に探せるように全種別をまとめて返す
+  if(!type) return ASSET_TYPES.reduce((all, t) => all.concat(assetRows(t, status)), []);
   const rows = [];
   if(type === 'PC' || type === 'Wi-Fi' || type === 'Mac付属品'){
     devices.filter(d => d['種別'] === type).forEach(d => {
@@ -656,7 +680,7 @@ function renderAssets(){
   const el = document.getElementById('as-search');
   if(!el) return;
   updateAssetSummary();
-  const q = el.value.trim().toLowerCase();
+  const q = searchKey(el.value.trim());
   const type = document.getElementById('as-type').value;
   const status = document.getElementById('as-status').value;
   const area = document.getElementById('assets-area');
@@ -664,10 +688,7 @@ function renderAssets(){
   let rows = assetRows(type, status);
   if(q){
     rows = rows.filter(r =>
-      String(r.model).toLowerCase().includes(q) ||
-      String(r.owner).toLowerCase().includes(q) ||
-      String(r.id).toLowerCase().includes(q) ||
-      String(r.id2).toLowerCase().includes(q)
+      [r.model, r.owner, r.id, r.id2].some(v => v && searchKey(v).includes(q))
     );
   }
 
@@ -676,17 +697,18 @@ function renderAssets(){
     return;
   }
 
-  const idLabel = type === '携帯' ? '電話番号' : type === 'ヘッドフォン' ? '初回貸与日' : 'シリアル';
+  const idLabel = !type ? 'シリアル / 番号' : type === '携帯' ? '電話番号' : type === 'ヘッドフォン' ? '初回貸与日' : 'シリアル';
 
-  // 種別で絞り込んだ一覧なので、種別の列は中身が行ごとに変わる追加備品のときだけ出す
-  const showKind = type === '追加備品';
+  // 種別で絞り込んだ一覧では種別の列は同じ値の繰り返しになるので、
+  // 行ごとに中身が変わる「すべて」と追加備品のときだけ出す
+  const showKind = !type || type === '追加備品';
 
   area.innerHTML = `<div class="card"><table class="asset-table">
     <thead><tr>${showKind ? '<th>種別</th>' : ''}<th>保有者</th><th>${idLabel}</th><th>備考</th></tr></thead>
     <tbody>${rows.map(r => `<tr>
       ${showKind ? `<td class="sub">${esc(r.model)}</td>` : ''}
       <td style="font-weight:600"><span class="lnk" style="cursor:pointer;color:var(--blue)" onclick="jumpToPerson('${esc(r.owner)}')">${esc(r.owner)}</span></td>
-      <td class="mono">${esc(type === 'ヘッドフォン' ? r.end : r.id) || '—'}</td>
+      <td class="mono">${esc(r.model === 'ヘッドフォン' ? r.end : r.id) || '—'}</td>
       <td class="sub">${esc(r.note)}</td>
     </tr>`).join('')}</tbody>
   </table></div>`;
