@@ -67,18 +67,27 @@ body{font-family:"Helvetica Neue",Arial,"Hiragino Kaku Gothic ProN","Hiragino Sa
 .emp-card.open .emp-toggle{transform:rotate(90deg)}
 .emp-detail{display:none;border-top:1px solid var(--border);padding:14px 18px;background:#fafbfc}
 .emp-card.open .emp-detail{display:block}
-.detail-section{margin-bottom:14px}
-.detail-section:last-child{margin-bottom:0}
-.detail-label{font-size:11px;font-weight:600;color:var(--text-sub);margin-bottom:6px}
-.detail-row{display:flex;align-items:baseline;gap:4px 14px;font-size:13px;padding:4px 0;flex-wrap:wrap}
+/* 見出し（パソコン/携帯…）を左の列に固定した2カラム。値の左端が縦に揃う */
+.detail-grid{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 14px;align-items:baseline}
+.detail-label{font-size:11px;font-weight:600;color:var(--text-sub);white-space:nowrap}
+.detail-rows{display:flex;flex-direction:column;gap:5px;min-width:0}
+.detail-row{display:flex;align-items:baseline;gap:4px 12px;font-size:13px;flex-wrap:wrap;min-width:0}
 .detail-row .k{color:var(--text-muted);font-size:11px;margin-right:-8px}
-.detail-row .mono{font-family:"SF Mono",Consolas,Menlo,monospace;font-size:12px}
-.extra-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:5px 0}
+.detail-row .mono{font-family:"SF Mono",Consolas,Menlo,monospace;font-size:12px;color:var(--text)}
+.detail-row .tel{font-size:13px;font-weight:600}
+/* 操作リンクは右端に寄せて、機器が何台あっても縦一列に並ぶようにする */
+.detail-row .edit-link,.detail-row .extra-del{margin-left:auto}
+.detail-foot{grid-column:1/-1}
+@media(max-width:520px){
+  .detail-grid{grid-template-columns:1fr;gap:4px}
+  .detail-label{margin-top:10px}
+  .detail-grid>.detail-label:first-child{margin-top:0}
+}
 .extra-del{font-size:11px;color:var(--red);cursor:pointer;border:none;background:none;padding:2px 6px}
 .extra-del:hover{text-decoration:underline}
 .extra-add{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 .extra-add select,.extra-add input{font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--border)}
-.extra-add input{flex:1;min-width:140px}
+.extra-add input{flex:1;min-width:140px;max-width:300px}
 .btn{padding:7px 16px;font-size:13px;border-radius:6px;border:1px solid var(--border);background:var(--white);cursor:pointer;font-weight:500}
 .btn:hover{background:var(--bg)}
 .btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
@@ -512,93 +521,77 @@ function toggleCard(name){
 function renderDetail(name){
   const a = personAssets(name);
   const emp = employees.find(e => e['名前'] === name);
-  let html = '';
+
+  // 見出しを左の列にまとめた2カラム。1台＝1行なので、機器が増えても
+  // シリアルや電話番号が縦に揃って読める。
+  const sections = [];
+  const section = (label, rows) => {
+    if(!rows.length) return;
+    sections.push(`<div class="detail-label">${label}</div><div class="detail-rows">${rows.join('')}</div>`);
+  };
+  const editBtn = (sheet, key) =>
+    `<button class="edit-link" onclick="openEditDevice('${sheet}','${esc(key)}','${esc(name)}')">編集</button>`;
 
   // ストック枠（貸出用・派遣）は社員ではないので在籍状況を持たない
   if(emp && !a.isSpecial){
-    html += `<div class="detail-section"><div class="detail-label">社員情報</div>
-      <div class="detail-row">
-        <span class="k">在籍状況</span><span>${esc(emp['在籍状況'])}</span>
-        <span class="k">雇用区分</span><span>${esc(empKind(emp))}</span>
-        ${emp['備考'] ? `<span class="k">備考</span><span>${esc(emp['備考'])}</span>` : ''}
-        <button class="edit-link" onclick="openEditEmployee('${esc(name)}')">編集</button>
-      </div></div>`;
+    section('社員情報', [`<div class="detail-row">
+      <span class="k">在籍状況</span><span>${esc(emp['在籍状況'])}</span>
+      <span class="k">雇用区分</span><span>${esc(empKind(emp))}</span>
+      ${emp['備考'] ? `<span class="k">備考</span><span>${esc(emp['備考'])}</span>` : ''}
+      <button class="edit-link" onclick="openEditEmployee('${esc(name)}')">編集</button>
+    </div>`]);
   }
 
   // カードでは機器を見分けられればよいので、PCはシリアル・携帯は電話番号だけ出す。
+  // 見出しで何の機器かは分かるため、値そのものだけを置いて項目名は省く。
   // 契約番号や製番は編集モーダルと機器一覧の検索から引ける。
-  if(a.pcs.length){
-    html += `<div class="detail-section"><div class="detail-label">パソコン</div>`;
-    a.pcs.forEach(d => {
-      html += `<div class="detail-row">
-        <span class="k">シリアル</span><span class="mono">${esc(d['シリアル'])}</span>
-        ${d['備考'] ? `<span class="k">${esc(d['備考'])}</span>` : ''}
-        <button class="edit-link" onclick="openEditDevice('通信機器','${esc(d['シリアル'])}','${esc(name)}')">編集</button>
-      </div>`;
-    });
-    html += `</div>`;
-  }
+  section('パソコン', a.pcs.map(d => `<div class="detail-row">
+    <span class="mono">${esc(d['シリアル'])}</span>
+    ${d['備考'] ? `<span class="sub">${esc(d['備考'])}</span>` : ''}
+    ${editBtn('通信機器', d['シリアル'])}
+  </div>`));
 
-  if(a.mob.length){
-    html += `<div class="detail-section"><div class="detail-label">携帯</div>`;
-    a.mob.forEach(d => {
-      html += `<div class="detail-row">
-        <span class="k">電話番号</span><span class="mono" style="font-weight:600">${esc(d['電話番号'])}</span>
-        <button class="edit-link" onclick="openEditDevice('社用携帯','${esc(d['製番'])}','${esc(name)}')">編集</button>
-      </div>`;
-    });
-    html += `</div>`;
-  }
+  section('携帯', a.mob.map(d => `<div class="detail-row">
+    <span class="mono tel">${esc(d['電話番号'])}</span>
+    ${editBtn('社用携帯', d['製番'])}
+  </div>`));
 
   if(a.hf){
     const hi = hfInfo(a.hf);
-    html += `<div class="detail-section"><div class="detail-label">ヘッドフォン</div>
-      <div class="detail-row">
-        <span class="k">初回貸与</span><span>${esc(a.hf['初回貸与日']) || '不明'}</span>
-        ${hi && hi.date ? `<span class="k">交換可能時期</span><span>${hi.date.getFullYear()}/${String(hi.date.getMonth()+1).padStart(2,'0')}</span>` : ''}
-        ${hi && hi.status === 'eligible' ? '<span class="mark m-hf-ok">交換可能</span>' : ''}
-        <button class="edit-link" onclick="openEditDevice('ヘッドフォン','${esc(name)}','${esc(name)}')">編集</button>
-      </div></div>`;
+    section('ヘッドフォン', [`<div class="detail-row">
+      <span class="k">初回貸与</span><span>${esc(a.hf['初回貸与日']) || '不明'}</span>
+      ${hi && hi.date ? `<span class="k">交換可能時期</span><span>${hi.date.getFullYear()}/${String(hi.date.getMonth()+1).padStart(2,'0')}</span>` : ''}
+      ${hi && hi.status === 'eligible' ? '<span class="mark m-hf-ok">交換可能</span>' : ''}
+      ${editBtn('ヘッドフォン', name)}
+    </div>`]);
   }
 
-  if(a.wifis.length){
-    html += `<div class="detail-section"><div class="detail-label">Wi-Fi</div>`;
-    a.wifis.forEach(d => {
-      html += `<div class="detail-row">
-        <span class="k">シリアル</span><span class="mono">${esc(d['シリアル'])}</span>
-        <button class="edit-link" onclick="openEditDevice('通信機器','${esc(d['シリアル'])}','${esc(name)}')">編集</button>
-      </div>`;
-    });
-    html += `</div>`;
-  }
+  section('Wi-Fi', a.wifis.map(d => `<div class="detail-row">
+    <span class="mono">${esc(d['シリアル'])}</span>
+    ${editBtn('通信機器', d['シリアル'])}
+  </div>`));
 
-  // 追加備品
-  html += `<div class="detail-section"><div class="detail-label">追加備品</div>`;
-  if(a.ext.length){
-    a.ext.forEach(d => {
-      html += `<div class="extra-item">
-        <span class="badge b-mac">${esc(d['種別'])}</span>
-        <span class="ri-sub">${esc(d['貸与日'])}${d['備考'] ? ' / ' + esc(d['備考']) : ''}</span>
-        <button class="extra-del" onclick="delExtra(${d['_row']}, '${esc(name)}')">削除</button>
-      </div>`;
-    });
-  }else{
-    html += `<div class="ri-sub" style="padding:4px 0">なし</div>`;
-  }
-  html += `<div class="extra-add">
+  // 追加備品は0点でも追加フォームを出すので、他とちがって常に表示する
+  const extraRows = a.ext.length ? a.ext.map(d => `<div class="detail-row">
+    <span class="badge b-mac">${esc(d['種別'])}</span>
+    <span class="sub">${esc(d['貸与日'])}${d['備考'] ? ' / ' + esc(d['備考']) : ''}</span>
+    <button class="extra-del" onclick="delExtra(${d['_row']}, '${esc(name)}')">削除</button>
+  </div>`) : ['<div class="detail-row sub">なし</div>'];
+  extraRows.push(`<div class="extra-add">
     <select id="extra-type-${esc(name)}">
       ${itemTypes.map(t => `<option value="${esc(t['種別名'])}">${esc(t['種別名'])}</option>`).join('')}
     </select>
     <input type="text" id="extra-note-${esc(name)}" placeholder="備考（型番など）">
     <button class="btn btn-sm" onclick="addExtra('${esc(name)}')">追加</button>
     <span class="saving" id="extra-save-${esc(name)}"></span>
-  </div></div>
+  </div>`);
+  section('追加備品', extraRows);
 
-  <div class="add-device-row">
-    <button class="btn btn-sm" onclick="openAddDevice('${esc(name)}')">＋ 機器を追加（PC / 携帯 / Wi-Fi）</button>
+  return `<div class="detail-grid">${sections.join('')}
+    <div class="detail-foot">
+      <button class="btn btn-sm" onclick="openAddDevice('${esc(name)}')">＋ 機器を追加（PC / 携帯 / Wi-Fi）</button>
+    </div>
   </div>`;
-
-  return html;
 }
 
 async function addExtra(name){
