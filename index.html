@@ -230,8 +230,8 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
   </div>
   <div class="form-card" id="form-order">
     <div class="form-grid">
-      <div class="form-group"><label>入社日</label><input type="date" id="join-date"></div>
-      <div class="form-group"><label>人数</label><input type="number" id="join-count" min="1" value="1"></div>
+      <div class="form-group"><label>納品希望日</label><input type="date" id="order-date"></div>
+      <div class="form-group"><label>台数</label><input type="number" id="order-count" min="1" value="1"></div>
     </div>
     <div class="btn-row"><button class="btn btn-primary" onclick="genOrderMail()">メール生成</button></div>
   </div>
@@ -723,20 +723,23 @@ function mailHeader(){
 
 // 宛先はSSマーケット固定。携帯はKDDIへ直接発注するため、このメールはPCのみを扱う
 function genOrderMail(){
-  const date = document.getElementById('join-date').value;
-  const count = document.getElementById('join-count').value || '1';
+  const date = document.getElementById('order-date').value;
+  const count = document.getElementById('order-count').value || '1';
   const dateStr = date ? date.replace(/-/g, '/') : '____/__/__';
   document.getElementById('mail-output').textContent =
 `${mailHeader()}
 
 ▼ PCの発注依頼
 
-下記の通り、正社員${count}名の入社が決定いたしましたので、ご手配をお願いできますでしょうか。
+下記の通り、PCのご手配をお願いできますでしょうか。
 
-■ 入社
-${dateStr}入社：${count}名
+■ 納品希望日
+${dateStr}
 
-※PCは現状お借りしているものと同スペックにてご手配をお願いできればと思います
+■ 台数
+${count}台
+
+※現状お借りしているものと同スペックにてご手配をお願いできればと思います
 ※Officeライセンスは不要です
 
 お忙しいところ恐縮ですが、上記についてご確認いただけますと幸いです。
