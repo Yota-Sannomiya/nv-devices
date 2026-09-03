@@ -247,14 +247,12 @@ footer{text-align:center;padding:24px;font-size:11px;color:var(--text-muted)}
   </div>
   <div class="form-card" id="form-exchange" style="display:none">
     <div class="form-grid">
-      <div class="form-group"><label>対象社員名</label><input type="text" id="ex-name" list="staff-list"></div>
       <div class="form-group"><label>機器名</label><input type="text" id="ex-device" placeholder="例：ProBook 635 Aero G8"></div>
       <div class="form-group"><label>シリアル番号</label><input type="text" id="ex-serial"></div>
       <div class="form-group"><label>不具合内容</label><input type="text" id="ex-issue" placeholder="例：キーボードのキーに不具合が生じているため"></div>
     </div>
     <div class="btn-row"><button class="btn btn-primary" onclick="genExchangeMail()">メール生成</button></div>
   </div>
-  <datalist id="staff-list"></datalist>
   <div class="section-title">生成されたメール</div>
   <div class="mail-output" id="mail-output">フォームに入力して「メール生成」を押してください</div>
   <div class="btn-row">
@@ -329,7 +327,6 @@ async function loadData(){
     updateSummary();
     renderPeople();
     renderAssets();
-    buildStaffList();
     buildRetireSelect();
     renderRetire();
   }catch(err){
@@ -724,13 +721,6 @@ function setMailType(type){
   document.getElementById('btn-exchange').classList.toggle('active', type === 'exchange');
 }
 
-function buildStaffList(){
-  const names = new Set();
-  employees.forEach(e => names.add(e['名前']));
-  document.getElementById('staff-list').innerHTML =
-    [...names].filter(Boolean).map(n => `<option value="${esc(n)}">`).join('');
-}
-
 function mailFooter(){
   return (config['会社名'] || 'ナウビレッジ株式会社') + '\n' + (config['部署名'] || '管理部') + ' ' + (config['署名者名'] || '');
 }
@@ -769,7 +759,6 @@ ${mailFooter()}`;
 }
 
 function genExchangeMail(){
-  const name = document.getElementById('ex-name').value || '●●';
   const device = document.getElementById('ex-device').value || '●●';
   const serial = document.getElementById('ex-serial').value || '●●';
   const issue = document.getElementById('ex-issue').value || '不具合が生じているため';
@@ -780,7 +769,6 @@ function genExchangeMail(){
 
 下記PCにつきまして、${issue}、交換をさせていただきたくご連絡いたします。
 
-・対象者：${name}
 ・商品名：${device}
 ・シリアル番号：${serial}
 
